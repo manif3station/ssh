@@ -1,5 +1,13 @@
 Revision history for ssh
 
+0.04 2026-04-23
+ - fix installed `ssh.add` behavior for stale `SSH_AUTH_SOCK` values by using quiet health checks
+ - reject explicit missing keys before writing them to the registry or running `ssh-add`
+ - remove stale remembered entries when an explicitly requested key is missing
+ - remove Perl file/line suffixes from expected user-facing command errors
+ - add a shell startup bridge that sources `~/.ssh/ssh-agent/agent.env` from the user's shell profile
+ - include `shell_env` and `shell_source` in successful add output so the current shell can be updated explicitly
+
 0.03 2026-04-23
  - move managed ssh-agent socket and env files from `~/.developer-dashboard/ssh-agent` to `~/.ssh/ssh-agent`
  - keep DD runtime roots clean for users who track their DD folder with git

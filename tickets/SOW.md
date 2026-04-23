@@ -14,5 +14,7 @@ Deliver a Developer Dashboard skill that prepares remembered SSH keys before the
 - skill collector named `door-opener`
 - key registry at `config/ssh/keys.txt`
 - managed ssh-agent socket repair
+- shell startup bridge for `~/.ssh/ssh-agent/agent.env`
+- clear missing-key validation before registry writes
 - Docker-based tests with `100%` coverage
 - README, docs, changelog, ticket records, release commit, and release push

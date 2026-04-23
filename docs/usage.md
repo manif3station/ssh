@@ -8,6 +8,26 @@ Register and add a specific key:
 dashboard ssh.add id_ed25519
 ```
 
+If the key exists, the command registers `~/.ssh/id_ed25519`, starts or reuses a usable agent, and runs `ssh-add` immediately. The JSON result includes:
+
+- `registry`: the installed skill registry path, normally `~/.developer-dashboard/skills/ssh/config/ssh/keys.txt`
+- `shell_env`: the env file at `~/.ssh/ssh-agent/agent.env`
+- `shell_source`: the command to update the current shell, `source ~/.ssh/ssh-agent/agent.env`
+
+If the key does not exist, the command fails before writing to the registry:
+
+```bash
+dashboard ssh.add id_rsa
+```
+
+Expected behavior:
+
+```text
+SSH key not found: ~/.ssh/id_rsa ...
+```
+
+If that key was already remembered by an older failed run, the failed command removes the stale remembered entry and keeps the other keys.
+
 Run with no argument to use the first existing default key:
 
 ```bash
@@ -69,6 +89,18 @@ The skill writes:
 ```
 
 with the active `SSH_AUTH_SOCK`, and maintains an SSH config include so normal `ssh` commands can use the active shared socket even when a new shell did not inherit the environment variable.
+
+The skill also appends one managed source line to the detected shell startup file:
+
+```bash
+[ -f "$HOME/.ssh/ssh-agent/agent.env" ] && . "$HOME/.ssh/ssh-agent/agent.env"
+```
+
+The selected file is `~/.bashrc` for bash, `~/.zshrc` for zsh, and `~/.profile` otherwise. This affects new shells. To update the current shell after the first successful add, run:
+
+```bash
+source ~/.ssh/ssh-agent/agent.env
+```
 
 The managed socket and env file are intentionally kept outside `~/.developer-dashboard` so DD runtime folders remain clean for users who track them with git.
 

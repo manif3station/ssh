@@ -39,13 +39,14 @@ sub execute {
             $collector = 1;
             next;
         }
-        die "Unsupported option: $arg" if $arg =~ /^-/;
+        die "Unsupported option: $arg\n" if $arg =~ /^-/;
         push @keys, $arg;
     }
 
     $self->ensure_skill_layout;
     $self->ensure_agent;
     $self->ensure_ssh_config_bridge;
+    $self->ensure_shell_agent_bridge;
 
     return $self->collector_check if $collector;
     return $self->add_keys(@keys);
@@ -54,10 +55,11 @@ sub execute {
 sub add_keys {
     my ( $self, @keys ) = @_;
     @keys = ( $self->default_key ) if !@keys;
-    die "No SSH key argument supplied and no default key exists at ~/.ssh/id_rsa or ~/.ssh/id_ed25519"
+    die "No SSH key argument supplied and no default key exists at ~/.ssh/id_rsa or ~/.ssh/id_ed25519\n"
       if !@keys || !defined $keys[0];
 
     my @normalized = map { $self->normalize_key_path($_) } @keys;
+    $self->validate_keys_exist(@normalized);
     $self->remember_keys(@normalized);
 
     my @added;
@@ -71,6 +73,8 @@ sub add_keys {
         agent    => $self->agent_socket,
         added    => \@added,
         registry => $self->keys_file,
+        shell_env => $self->agent_env_file,
+        shell_source => 'source ~/.ssh/ssh-agent/agent.env',
     };
 }
 
@@ -119,6 +123,7 @@ sub ensure_agent {
     my $current = $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || $self->read_agent_env || q{};
 
     if ( $current ne q{} && $self->ssh_add_list_rc($current) != 2 ) {
+        $self->set_auth_sock($current);
         $self->write_agent_env($current);
         return $current;
     }
@@ -130,31 +135,34 @@ sub ensure_agent {
     }
 
     unlink $socket if -e $socket;
-    $self->start_agent($socket);
-    $self->set_auth_sock($socket);
-    $self->write_agent_env($socket);
-    return $socket;
+    my $started = $self->start_agent($socket);
+    $self->set_auth_sock($started);
+    $self->write_agent_env($started);
+    return $started;
 }
 
 sub ssh_add_list_rc {
     my ( $self, $socket ) = @_;
     my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $socket );
-    return $self->system_with_env( \%env, 'ssh-add', '-l' );
+    my ( undef, undef, $exit ) = $self->capture_with_env( \%env, 'ssh-add', '-l' );
+    return $exit;
 }
 
 sub start_agent {
     my ( $self, $socket ) = @_;
     make_path( dirname($socket) );
     my ( $stdout, $stderr, $exit ) = $self->capture_command( 'ssh-agent', '-a', $socket, '-s' );
-    die "ssh-agent failed: $stderr" if $exit != 0;
-    return $stdout;
+    die "ssh-agent failed: $stderr\n" if $exit != 0;
+    my $started_socket = $self->parse_agent_socket($stdout) || $socket;
+    $self->wait_for_agent($started_socket);
+    return $started_socket;
 }
 
 sub run_ssh_add {
     my ( $self, $key ) = @_;
     my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->agent_socket );
     my $exit = $self->system_with_env( \%env, 'ssh-add', $self->expand_key_path($key) );
-    die "ssh-add failed for $key" if $exit != 0;
+    die "ssh-add failed for $key\n" if $exit != 0;
     return 1;
 }
 
@@ -181,6 +189,22 @@ sub key_fingerprint {
     return;
 }
 
+sub validate_keys_exist {
+    my ( $self, @keys ) = @_;
+    my @missing;
+    for my $key (@keys) {
+        my $expanded = $self->expand_key_path($key);
+        next if defined $expanded && -f $expanded;
+        push @missing, [ $key, $expanded ];
+    }
+    if (@missing) {
+        $self->forget_keys( map { $_->[0] } @missing );
+        my ( $key, $expanded ) = @{ $missing[0] };
+        die "SSH key not found: $key (expanded path: $expanded). Create the key first or pass an existing key path.\n";
+    }
+    return 1;
+}
+
 sub explain_collector_prompt {
     my ( $self, $key ) = @_;
     my $fh = $self->{stderr_fh} || \*STDERR;
@@ -199,6 +223,15 @@ sub remember_keys {
     }
     $self->write_keys(@existing);
     return @existing;
+}
+
+sub forget_keys {
+    my ( $self, @keys ) = @_;
+    return 1 if !@keys;
+    my %remove = map { $_ => 1 } @keys;
+    my @kept = grep { !$remove{$_} } $self->read_keys;
+    $self->write_keys(@kept);
+    return 1;
 }
 
 sub read_keys {
@@ -223,7 +256,7 @@ sub write_keys {
 
 sub normalize_key_path {
     my ( $self, $key ) = @_;
-    die 'Missing key path' if !defined $key || $key eq q{};
+    die "Missing key path\n" if !defined $key || $key eq q{};
     return $key if $key =~ /^~\//;
     return $key if File::Spec->file_name_is_absolute($key);
     return '~/.ssh/' . $key;
@@ -278,6 +311,57 @@ sub ensure_ssh_config_bridge {
     print {$cfg_out} "$line\n";
     close $cfg_out;
     return 1;
+}
+
+sub ensure_shell_agent_bridge {
+    my ($self) = @_;
+    my $profile = $self->shell_profile_file;
+    return 1 if !$profile;
+
+    my $line = q{[ -f "$HOME/.ssh/ssh-agent/agent.env" ] && . "$HOME/.ssh/ssh-agent/agent.env"};
+    my $content = q{};
+    if ( -f $profile ) {
+        open my $in, '<', $profile or die "Unable to read $profile: $!";
+        local $/;
+        $content = <$in>;
+        close $in;
+    }
+    return 1 if $content =~ /^\Q$line\E\s*$/m;
+
+    make_path( dirname($profile) );
+    open my $out, '>>', $profile or die "Unable to append $profile: $!";
+    print {$out} "\n" if $content ne q{} && $content !~ /\n\z/;
+    print {$out} "# Developer Dashboard ssh skill managed agent bridge\n";
+    print {$out} "$line\n";
+    close $out;
+    return 1;
+}
+
+sub shell_profile_file {
+    my ($self) = @_;
+    return $self->{shell_profile_file} if exists $self->{shell_profile_file};
+    my $shell = $self->{env}{SHELL} || $ENV{SHELL} || q{};
+    return $self->home_path('.zshrc') if $shell =~ m{/zsh\z};
+    return $self->home_path('.bashrc') if $shell =~ m{/bash\z};
+    return $self->home_path('.profile');
+}
+
+sub parse_agent_socket {
+    my ( $self, $stdout ) = @_;
+    return if !defined $stdout;
+    return $1 if $stdout =~ /SSH_AUTH_SOCK='([^']+)'/;
+    return $1 if $stdout =~ /SSH_AUTH_SOCK=([^;\s]+)/;
+    return;
+}
+
+sub wait_for_agent {
+    my ( $self, $socket ) = @_;
+    return 1 if $self->{capture};
+    for ( 1 .. 20 ) {
+        return 1 if $self->ssh_add_list_rc($socket) != 2;
+        select undef, undef, undef, 0.05;
+    }
+    die "ssh-agent started but the socket is not usable: $socket\n";
 }
 
 sub write_agent_env {
@@ -381,7 +465,7 @@ sub skill_root {
 
 sub home {
     my ($self) = @_;
-    return $self->{home} || $ENV{HOME} || die 'HOME is required';
+    return $self->{home} || $ENV{HOME} || die "HOME is required\n";
 }
 
 sub home_path {

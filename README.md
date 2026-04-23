@@ -32,6 +32,18 @@ The skill also writes:
 
 That file contains a shell-readable `SSH_AUTH_SOCK` export for shells or helper workflows that want to source the current managed agent socket. The skill deliberately keeps these files under `~/.ssh/ssh-agent` instead of `~/.developer-dashboard` so users who track their DD root with git do not pick up volatile SSH runtime files.
 
+`dashboard ssh.add` also adds a managed shell startup line to the detected shell profile:
+
+```bash
+[ -f "$HOME/.ssh/ssh-agent/agent.env" ] && . "$HOME/.ssh/ssh-agent/agent.env"
+```
+
+The target profile is `~/.bashrc` for bash, `~/.zshrc` for zsh, and `~/.profile` otherwise. This makes new shells pick up the managed agent socket. The current already-open shell cannot be modified by a child process, so after the first add you can update the current shell with:
+
+```bash
+source ~/.ssh/ssh-agent/agent.env
+```
+
 To make ordinary `ssh` commands work even when a new terminal does not inherit `SSH_AUTH_SOCK`, the skill writes a managed include file:
 
 ```text
@@ -71,6 +83,26 @@ dashboard ssh.add id_ed25519
 ```
 
 This stores `~/.ssh/id_ed25519` in `config/ssh/keys.txt` and immediately runs `ssh-add` for that key.
+
+Successful output includes the exact installed registry and shell env paths:
+
+```json
+{"mode":"add","added":["~/.ssh/id_ed25519"],"registry":".../skills/ssh/config/ssh/keys.txt","shell_env":"~/.ssh/ssh-agent/agent.env","shell_source":"source ~/.ssh/ssh-agent/agent.env"}
+```
+
+If the key does not exist, the command fails before registering the key or calling `ssh-add`:
+
+```bash
+dashboard ssh.add id_rsa
+```
+
+Example error:
+
+```text
+SSH key not found: ~/.ssh/id_rsa (expanded path: ~/.ssh/id_rsa). Create the key first or pass an existing key path.
+```
+
+If that missing key was already present from an older failed run, the command removes that stale entry from the registry while keeping other remembered keys.
 
 Register and add the first available default key:
 
@@ -161,10 +193,14 @@ dashboard skills uninstall ssh
 ## Edge Cases
 
 - duplicate keys are not written twice
+- explicit missing keys are rejected before registration or `ssh-add`
+- stale remembered entries for explicitly missing keys are removed during that rejection
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent
-- a dead `SSH_AUTH_SOCK` starts or reuses the managed agent
+- a dead `SSH_AUTH_SOCK` starts or reuses the managed agent without leaking raw `ssh-add -l` errors
 - a live existing `SSH_AUTH_SOCK` is reused and written to the shell-readable env file
 - when a new session has no `SSH_AUTH_SOCK`, the skill reads the saved env file and reuses that socket if it is still alive
+- new shells source `~/.ssh/ssh-agent/agent.env` through the managed shell profile bridge
+- the current shell may need `source ~/.ssh/ssh-agent/agent.env` after the first successful add
 - collector mode does not hang when there is no interactive terminal
 - the skill does not overwrite the user's existing `~/.ssh/config`; it adds a managed include block only when needed
 - if a configured key has no `.pub` file, the collector treats it as missing because it cannot safely compare the fingerprint against `ssh-add -l`

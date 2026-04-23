@@ -13,6 +13,28 @@ use lib 'lib';
 use SSH::Add;
 
 {
+    package SSH::Add::TestWait;
+    use parent 'SSH::Add';
+
+    sub ssh_add_list_rc {
+        my ($self) = @_;
+        $self->{checks}++;
+        return $self->{checks} > 1 ? 1 : 2;
+    }
+}
+
+{
+    package SSH::Add::TestWaitFail;
+    use parent 'SSH::Add';
+
+    sub ssh_add_list_rc {
+        my ($self) = @_;
+        $self->{checks}++;
+        return 2;
+    }
+}
+
+{
     my $home = tempdir( CLEANUP => 1 );
     my $root = tempdir( CLEANUP => 1 );
     my $runner = SSH::Add->new(
@@ -21,10 +43,12 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 0 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
         capture_command => sub { return ( q{}, q{}, 0 ) },
     );
     like( eval { $runner->execute('--bad'); 1 } ? q{} : $@, qr/Unsupported option/, 'unsupported option is rejected' );
     like( eval { $runner->normalize_key_path(undef); 1 } ? q{} : $@, qr/Missing key path/, 'missing key path is rejected' );
+    ok( SSH::Add->main('--bad') == 2, 'main can be called as a class method' );
 }
 
 {
@@ -37,6 +61,7 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 1 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
         capture_command => sub { return ( q{}, q{}, 0 ) },
     );
     $runner->ensure_skill_layout;
@@ -57,10 +82,14 @@ use SSH::Add;
             return 2 if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l';
             return 0;
         },
+        capture => sub {
+            my ( $env, @cmd ) = @_;
+            return ( q{}, q{}, 0 );
+        },
         capture_command => sub {
             my (@cmd) = @_;
             push @capture, \@cmd;
-            return ( q{}, q{}, 0 );
+            return ( "SSH_AUTH_SOCK=$home/.ssh/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 );
         },
     );
     make_path( $runner->agent_dir );
@@ -80,6 +109,7 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 0 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
     );
     make_path( $runner->agent_dir );
     my $server = IO::Socket::UNIX->new(
@@ -143,6 +173,38 @@ use SSH::Add;
     open my $bad, '>', File::Spec->catfile( $home, '.ssh', 'bad.pub' ) or die $!;
     close $bad;
     is( $runner->key_fingerprint('~/.ssh/bad'), undef, 'keygen failure returns undef' );
+}
+
+{
+    my $home = tempdir( CLEANUP => 1 );
+    my $runner = SSH::Add->new( home => $home, env => {}, no_global_env => 1, shell_profile_file => undef );
+    is( $runner->ensure_shell_agent_bridge, 1, 'shell bridge is skipped when no shell profile is selected' );
+    is( SSH::Add->new( home => $home, env => { SHELL => '/bin/zsh' } )->shell_profile_file, File::Spec->catfile( $home, '.zshrc' ), 'zsh uses zshrc bridge' );
+    my $profile = File::Spec->catfile( $home, '.profile' );
+    open my $fh, '>', $profile or die $!;
+    print {$fh} "existing";
+    close $fh;
+    my $profile_runner = SSH::Add->new( home => $home, env => { SHELL => '/bin/fish' } );
+    $profile_runner->ensure_shell_agent_bridge;
+    like( _slurp($profile), qr/existing\n# Developer Dashboard/, 'profile bridge preserves content without trailing newline' );
+    $profile_runner->ensure_shell_agent_bridge;
+    is( () = _slurp($profile) =~ /^\[ -f "\$HOME\/\.ssh\/ssh-agent\/agent\.env" \]/mg, 1, 'profile bridge is not duplicated' );
+}
+
+{
+    my $runner = SSH::Add->new;
+    is( $runner->parse_agent_socket(undef), undef, 'agent socket parser handles missing stdout' );
+    is( $runner->parse_agent_socket("SSH_AUTH_SOCK='/tmp/quoted.sock'; export SSH_AUTH_SOCK;\n"), '/tmp/quoted.sock', 'agent socket parser handles quoted output' );
+}
+
+{
+    my $runner = SSH::Add::TestWait->new;
+    is( $runner->wait_for_agent('/tmp/test-agent.sock'), 1, 'wait_for_agent retries until socket responds' );
+    is( $runner->{checks}, 2, 'wait_for_agent performed retry checks' );
+    my $fail = SSH::Add::TestWaitFail->new;
+    my $ok = eval { $fail->wait_for_agent('/tmp/test-agent.sock'); 1 };
+    ok( !$ok, 'wait_for_agent dies when socket never responds' );
+    like( $@, qr/socket is not usable/, 'wait_for_agent failure explains unusable socket' );
 }
 
 {
@@ -245,6 +307,7 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 0 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
         capture_command => sub { return ( q{}, q{}, 0 ) },
     );
     $runner->write_keys( '', '#comment', '~/.ssh/id_ed25519' );
@@ -260,8 +323,12 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 0 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
         capture_command => sub { return ( q{}, q{}, 0 ) },
     );
+    make_path( File::Spec->catdir( $home, '.ssh' ) );
+    open my $key, '>', File::Spec->catfile( $home, '.ssh', 'id_ed25519' ) or die $!;
+    close $key;
     my $out_file = File::Spec->catfile( $home, 'stdout.txt' );
     open my $oldout, '>&', \*STDOUT or die $!;
     open STDOUT, '>', $out_file or die $!;
@@ -278,6 +345,7 @@ use SSH::Add;
         env           => {},
         no_global_env => 1,
         system        => sub { return 0 },
+        capture       => sub { return ( q{}, q{}, 0 ) },
         capture_command => sub { return ( q{}, q{}, 0 ) },
     );
     my $err_file = File::Spec->catfile( $runner->home, 'stderr.txt' );

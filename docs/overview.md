@@ -11,9 +11,14 @@ The skill is intentionally proactive. It moves passphrase prompts to the beginni
 - remembered keys live in `config/ssh/keys.txt`
 - the managed socket is `~/.ssh/ssh-agent/agent.sock`
 - the shell-readable env file is `~/.ssh/ssh-agent/agent.env`
+- a shell startup bridge sources `~/.ssh/ssh-agent/agent.env` from `~/.bashrc`, `~/.zshrc`, or `~/.profile`
 - the SSH config bridge is `~/.ssh/developer-dashboard-ssh-agent.conf`
 - the user's `~/.ssh/config` receives one managed `Include` line when needed
 
 This design avoids the single-session trap. Starting an agent in one terminal is not enough unless later terminals and collectors can find the same socket. The saved env file lets the skill rediscover a live socket when `SSH_AUTH_SOCK` is missing, and the managed `IdentityAgent` include gives `ssh` a persistent path to the active shared agent.
+
+The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
+
+Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `config/ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.
 
 The socket and env file stay under `~/.ssh/ssh-agent`, not under `~/.developer-dashboard`, because some users track their DD runtime root with git and should not see volatile SSH agent files in that tree.

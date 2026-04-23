@@ -40,7 +40,7 @@ sub harness {
     my $runner = SSH::Add->new(
         home            => $home,
         skill_root      => $root,
-        env             => {},
+        env             => { SHELL => '/bin/bash' },
         no_global_env   => 1,
         system          => $system,
         capture         => $capture,
@@ -51,17 +51,21 @@ sub harness {
 }
 
 {
-    my ( $runner, $home, undef, $system_calls ) = harness();
+    my ( $runner, $home, $root, $system_calls ) = harness();
+    _touch( File::Spec->catfile( $home, '.ssh', 'id_ed25519' ) );
     my $result = $runner->execute('id_ed25519');
     is( $result->{mode}, 'add', 'explicit key runs add mode' );
     is_deeply( $result->{added}, ['~/.ssh/id_ed25519'], 'bare key normalizes to home-relative ssh path in result' );
     is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'bare key is remembered as home-relative path' );
     is( $system_calls->[-1][1], 'ssh-add', 'ssh-add command is called' );
     is( $system_calls->[-1][2], File::Spec->catfile( $home, '.ssh', 'id_ed25519' ), 'ssh-add receives expanded filesystem path' );
+    is( $result->{registry}, File::Spec->catfile( $root, 'config', 'ssh', 'keys.txt' ), 'result exposes installed skill registry path' );
+    is( $result->{shell_source}, 'source ~/.ssh/ssh-agent/agent.env', 'result exposes source command for current shell' );
 }
 
 {
-    my ( $runner ) = harness();
+    my ( $runner, $home ) = harness();
+    _touch( File::Spec->catfile( $home, '.ssh', 'id_ed25519' ) );
     $runner->execute('id_ed25519');
     $runner->execute('~/.ssh/id_ed25519');
     is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'duplicate key is not written twice' );
@@ -93,19 +97,32 @@ sub harness {
 }
 
 {
+    my ( $runner ) = harness();
+    $runner->write_keys(qw(~/.ssh/id_rsa ~/.ssh/id_ed25519));
+    my $error = eval { $runner->execute('id_rsa'); 1 };
+    ok( !$error, 'explicit missing key dies before ssh-add' );
+    like( $@, qr/SSH key not found: ~\/\.ssh\/id_rsa/, 'missing explicit key error names normalized key' );
+    is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'missing explicit key is removed from stale registry without removing other keys' );
+}
+
+{
     my ( $runner, $home ) = harness();
-    $runner->execute('/tmp/work_key');
-    is( _slurp( $runner->keys_file ), "/tmp/work_key\n", 'absolute key path is stored as supplied' );
+    my $work_key = File::Spec->catfile( $home, 'work_key' );
+    _touch($work_key);
+    $runner->execute($work_key);
+    is( _slurp( $runner->keys_file ), "$work_key\n", 'absolute key path is stored as supplied' );
     ok( -f File::Spec->catfile( $home, '.ssh', 'developer-dashboard-ssh-agent.conf' ), 'managed ssh config include file is written' );
     like( _slurp( File::Spec->catfile( $home, '.ssh', 'config' ) ), qr/Include ~\/\.ssh\/developer-dashboard-ssh-agent\.conf/, 'user ssh config includes managed file' );
 }
 
 {
     my ( $runner, $home ) = harness();
+    _touch( File::Spec->catfile( $home, '.ssh', 'id_rsa' ) );
     my $env = $runner->agent_env_file;
     $runner->execute('id_rsa');
     like( _slurp($env), qr/^export SSH_AUTH_SOCK='/, 'agent env file is shell-readable' );
     like( _slurp( $runner->managed_ssh_include_file ), qr/IdentityAgent \Q$home\E\/\.ssh\/ssh-agent\/agent\.sock/, 'ssh include points at stable managed socket outside DD root' );
+    like( _slurp( File::Spec->catfile( $home, '.bashrc' ) ), qr/\.ssh\/ssh-agent\/agent\.env/, 'bash startup sources managed agent env' );
 }
 
 sub _slurp {
@@ -113,6 +130,12 @@ sub _slurp {
     open my $fh, '<', $file or die "Unable to read $file: $!";
     local $/;
     return <$fh>;
+}
+
+sub _touch {
+    my ($file) = @_;
+    open my $fh, '>', $file or die "Unable to create $file: $!";
+    close $fh;
 }
 
 done_testing;
