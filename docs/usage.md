@@ -29,6 +29,12 @@ SSH key not found: ~/.ssh/id_rsa ...
 
 If that key was already remembered by an older failed run, the failed command removes the stale remembered entry and keeps the other keys.
 
+If the key is already loaded in the active agent, the command skips `ssh-add` and returns it under `already_loaded`:
+
+```json
+{"mode":"add","added":[],"already_loaded":["~/.ssh/id_rsa"]}
+```
+
 Run with no argument to use the first existing default key:
 
 ```bash

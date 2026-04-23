@@ -24,3 +24,4 @@ Bootstrap the `ssh` skill with smart key registration, managed ssh-agent repair,
 - table and JSON output modes for key listing
 - loaded, not-loaded, and missing-file status reporting for remembered keys
 - active-socket use for add, list, and collector flows when the live socket differs from the default managed path
+- already-loaded detection so `ssh.add` skips repeated passphrase prompts

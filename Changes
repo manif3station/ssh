@@ -1,5 +1,9 @@
 Revision history for ssh
 
+0.07 2026-04-24
+ - make `ssh.add` skip `ssh-add` when the key fingerprint is already loaded in the active agent
+ - return already loaded keys in `already_loaded` instead of prompting for the passphrase again
+
 0.06 2026-04-24
  - fix `ssh.add`, collector checks, and list mode to use the active ssh-agent socket selected by `ensure_agent`
  - handle agent start cases where the live socket differs from the default managed socket path

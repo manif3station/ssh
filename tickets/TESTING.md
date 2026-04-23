@@ -28,12 +28,12 @@ cover -report text
 - Docker covered suite passed
 - `lib/SSH/Add.pm` reached `100.0%` statement coverage
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, and CLI `main` success/error paths
+- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, already-loaded add skipping, and CLI `main` success/error paths
 
-Latest covered result for `DD-039`:
+Latest covered result for `DD-040`:
 
 ```text
-Files=7, Tests=112
+Files=7, Tests=116
 lib/SSH/Add.pm    100.0   89.7   67.3  100.0
 ```
 
@@ -73,6 +73,7 @@ Observed result:
 - `ssh.list -o json` returned structured key status data
 - `ssh.ls` matched the list command behavior
 - a started agent socket different from the default managed path was used consistently by add and list code paths
+- already-loaded keys were returned under `already_loaded` and did not trigger another `ssh-add` call
 
 Latest DD source proof for `DD-038` used a temporary home with a generated no-passphrase test key and verified:
 
@@ -106,6 +107,7 @@ Observed behavior:
 - `dashboard ssh.list -o json` decoded successfully through the installed skill
 - `dashboard ssh.ls -o json` decoded successfully through the installed skill alias
 - the installed skill version is `0.06`
+- the installed skill version is `0.07`
 
 ## Cleanup
 

@@ -61,6 +61,7 @@ sub harness {
     is( $system_calls->[-1][2], File::Spec->catfile( $home, '.ssh', 'id_ed25519' ), 'ssh-add receives expanded filesystem path' );
     is( $result->{registry}, File::Spec->catfile( $root, 'config', 'ssh', 'keys.txt' ), 'result exposes installed skill registry path' );
     is( $result->{shell_source}, 'source ~/.ssh/ssh-agent/agent.env', 'result exposes source command for current shell' );
+    is_deeply( $result->{already_loaded}, [], 'fresh add reports no already-loaded keys' );
 }
 
 {
@@ -69,6 +70,28 @@ sub harness {
     $runner->execute('id_ed25519');
     $runner->execute('~/.ssh/id_ed25519');
     is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'duplicate key is not written twice' );
+}
+
+{
+    my @system_calls;
+    my ( $runner, $home ) = harness(
+        system => sub {
+            my ( $env, @cmd ) = @_;
+            push @system_calls, [ $env, @cmd ];
+            return 0;
+        },
+        capture => sub {
+            my ( $env, @cmd ) = @_;
+            return ( "256 SHA256:testfp key\n", q{}, 0 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l';
+            return ( q{}, q{}, 0 );
+        },
+    );
+    _touch( File::Spec->catfile( $home, '.ssh', 'id_ed25519' ) );
+    my $result = $runner->execute('id_ed25519');
+    is_deeply( $result->{added}, [], 'already-loaded key is not added again' );
+    is_deeply( $result->{already_loaded}, ['~/.ssh/id_ed25519'], 'already-loaded key is reported separately' );
+    my $add_calls = scalar grep { $_->[1] eq 'ssh-add' && $_->[2] ne '-l' } @system_calls;
+    is( $add_calls, 0, 'ssh-add is not called again for already-loaded key' );
 }
 
 {

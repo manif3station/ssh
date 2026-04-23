@@ -94,6 +94,8 @@ Successful output includes the exact installed registry and shell env paths:
 
 The `agent` field reports the active socket actually used for `ssh-add`. This matters on systems where the live agent socket can differ from the default managed socket path.
 
+If the key is already loaded in the active agent, `dashboard ssh.add` does not ask for the passphrase again. In that case the result returns the key under `already_loaded` and leaves `added` empty.
+
 If the key does not exist, the command fails before registering the key or calling `ssh-add`:
 
 ```bash
@@ -240,6 +242,7 @@ dashboard skills uninstall ssh
 ## Edge Cases
 
 - duplicate keys are not written twice
+- `ssh.add` skips passphrase prompts for keys that are already loaded in the active agent
 - explicit missing keys are rejected before registration or `ssh-add`
 - stale remembered entries for explicitly missing keys are removed during that rejection
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent

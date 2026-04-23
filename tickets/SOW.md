@@ -20,5 +20,6 @@ Deliver a Developer Dashboard skill that prepares remembered SSH keys before the
 - clear missing-key validation before registry writes
 - table and JSON managed-key inspection output
 - active-socket use across add, list, and collector flows
+- idempotent `ssh.add` behavior for already loaded keys
 - Docker-based tests with `100%` coverage
 - README, docs, changelog, ticket records, release commit, and release push

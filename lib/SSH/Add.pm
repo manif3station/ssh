@@ -105,18 +105,27 @@ sub add_keys {
     $self->validate_keys_exist(@normalized);
     $self->remember_keys(@normalized);
 
+    my @loaded = $self->loaded_key_fingerprints;
+    my %loaded = map { $_ => 1 } @loaded;
     my @added;
+    my @already_loaded;
     for my $key (@normalized) {
+        my $fingerprint = $self->key_fingerprint($key);
+        if ( $fingerprint && $loaded{$fingerprint} ) {
+            push @already_loaded, $key;
+            next;
+        }
         $self->run_ssh_add($key);
         push @added, $key;
     }
 
     return {
-        mode     => 'add',
-        agent    => $self->active_agent_socket,
-        added    => \@added,
-        registry => $self->keys_file,
-        shell_env => $self->agent_env_file,
+        mode         => 'add',
+        agent        => $self->active_agent_socket,
+        added        => \@added,
+        already_loaded => \@already_loaded,
+        registry     => $self->keys_file,
+        shell_env    => $self->agent_env_file,
         shell_source => 'source ~/.ssh/ssh-agent/agent.env',
     };
 }

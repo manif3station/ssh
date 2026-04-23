@@ -22,6 +22,8 @@ This design avoids the single-session trap. Starting an agent in one terminal is
 
 The skill now uses that active socket consistently for `ssh.add`, list mode, and collector checks. That avoids failures on systems where the actual live socket selected by `ssh-agent` differs from the default managed path.
 
+`ssh.add` is now idempotent for already loaded keys. If the key fingerprint is already present in the active agent, the skill records that under `already_loaded` and skips another `ssh-add` passphrase prompt.
+
 The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
 
 Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `config/ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.
