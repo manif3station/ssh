@@ -208,6 +208,21 @@ use SSH::Add;
 }
 
 {
+    my $home = tempdir( CLEANUP => 1 );
+    my $runner = SSH::Add->new( home => $home, env => {}, no_global_env => 1 );
+    $runner->write_agent_env('/tmp/quoted-agent.sock');
+    is( $runner->read_agent_env, '/tmp/quoted-agent.sock', 'read_agent_env reads quoted shell export' );
+    open my $fh, '>', $runner->agent_env_file or die $!;
+    print {$fh} "SSH_AUTH_SOCK=/tmp/plain-agent.sock; export SSH_AUTH_SOCK;\n";
+    close $fh;
+    is( $runner->read_agent_env, '/tmp/plain-agent.sock', 'read_agent_env reads plain ssh-agent output format' );
+    open my $bad, '>', $runner->agent_env_file or die $!;
+    print {$bad} "no socket here\n";
+    close $bad;
+    is( $runner->read_agent_env, undef, 'read_agent_env returns undef when no socket assignment exists' );
+}
+
+{
     my $runner = SSH::Add->new;
     ok( defined $runner->is_interactive, 'is_interactive falls back to terminal detection' );
 }

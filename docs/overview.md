@@ -14,4 +14,4 @@ The skill is intentionally proactive. It moves passphrase prompts to the beginni
 - the SSH config bridge is `~/.ssh/developer-dashboard-ssh-agent.conf`
 - the user's `~/.ssh/config` receives one managed `Include` line when needed
 
-This design avoids the single-session trap. Starting an agent in one terminal is not enough unless later terminals and collectors can find the same socket. The stable socket plus `IdentityAgent` include gives `ssh` a persistent path to the same agent.
+This design avoids the single-session trap. Starting an agent in one terminal is not enough unless later terminals and collectors can find the same socket. The saved env file lets the skill rediscover a live socket when `SSH_AUTH_SOCK` is missing, and the managed `IdentityAgent` include gives `ssh` a persistent path to the active shared agent.

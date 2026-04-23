@@ -44,7 +44,7 @@ and adds this line to `~/.ssh/config` when it is not already present:
 Include ~/.ssh/developer-dashboard-ssh-agent.conf
 ```
 
-The include points `IdentityAgent` at the stable DD-managed socket, so new SSH clients can find the same agent without each shell starting its own agent.
+The include points `IdentityAgent` at the active shared agent socket. If a live socket is already recorded in `agent.env`, new sessions can reuse it. If no live socket exists, the skill starts a managed agent at the stable DD socket and updates the include to that socket.
 
 ## Developer Dashboard Feature Added
 
@@ -164,6 +164,7 @@ dashboard skills uninstall ssh
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent
 - a dead `SSH_AUTH_SOCK` starts or reuses the managed agent
 - a live existing `SSH_AUTH_SOCK` is reused and written to the shell-readable env file
+- when a new session has no `SSH_AUTH_SOCK`, the skill reads the saved env file and reuses that socket if it is still alive
 - collector mode does not hang when there is no interactive terminal
 - the skill does not overwrite the user's existing `~/.ssh/config`; it adds a managed include block only when needed
 - if a configured key has no `.pub` file, the collector treats it as missing because it cannot safely compare the fingerprint against `ssh-add -l`

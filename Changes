@@ -1,4 +1,9 @@
 Revision history for ssh
 
+0.02 2026-04-23
+ - make the SSH config bridge point at the active shared agent socket instead of always pointing at the default managed socket
+ - read the saved agent env file when a new session has no `SSH_AUTH_SOCK`
+ - add tests for saved agent env parsing and active socket bridging
+
 0.01 2026-04-23
  - bootstrap the ssh skill with smart key registration, managed ssh-agent socket repair, and collector-ready key checks

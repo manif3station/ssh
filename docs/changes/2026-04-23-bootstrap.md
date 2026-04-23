@@ -12,3 +12,4 @@ Bootstrap the `ssh` skill with smart key registration, managed ssh-agent repair,
 - managed ssh-agent socket state
 - shell-readable agent env file
 - SSH config include for `IdentityAgent`
+- saved agent env reuse for sessions that start without `SSH_AUTH_SOCK`

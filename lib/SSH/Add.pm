@@ -44,8 +44,8 @@ sub execute {
     }
 
     $self->ensure_skill_layout;
-    $self->ensure_ssh_config_bridge;
     $self->ensure_agent;
+    $self->ensure_ssh_config_bridge;
 
     return $self->collector_check if $collector;
     return $self->add_keys(@keys);
@@ -116,7 +116,7 @@ sub collector_check {
 sub ensure_agent {
     my ($self) = @_;
     my $socket = $self->agent_socket;
-    my $current = $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || q{};
+    my $current = $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || $self->read_agent_env || q{};
 
     if ( $current ne q{} && $self->ssh_add_list_rc($current) != 2 ) {
         $self->write_agent_env($current);
@@ -258,7 +258,7 @@ sub ensure_ssh_config_bridge {
     my $include = $self->managed_ssh_include_file;
     open my $inc_fh, '>', $include or die "Unable to write $include: $!";
     print {$inc_fh} "Host *\n";
-    print {$inc_fh} "  IdentityAgent ", $self->agent_socket, "\n";
+    print {$inc_fh} "  IdentityAgent ", $self->active_agent_socket, "\n";
     close $inc_fh;
 
     my $config = $self->home_path( '.ssh', 'config' );
@@ -288,6 +288,23 @@ sub write_agent_env {
     print {$fh} "export SSH_AUTH_SOCK='$socket'\n";
     close $fh;
     return 1;
+}
+
+sub read_agent_env {
+    my ($self) = @_;
+    my $file = $self->agent_env_file;
+    return if !-f $file;
+    open my $fh, '<', $file or die "Unable to read $file: $!";
+    my $content = do { local $/; <$fh> };
+    close $fh;
+    return $1 if $content =~ /SSH_AUTH_SOCK='([^']+)'/;
+    return $1 if $content =~ /SSH_AUTH_SOCK=([^;\s]+)/;
+    return;
+}
+
+sub active_agent_socket {
+    my ($self) = @_;
+    return $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || $self->agent_socket;
 }
 
 sub set_auth_sock {

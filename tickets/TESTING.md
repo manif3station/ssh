@@ -28,7 +28,7 @@ cover -report text
 - Docker covered suite passed
 - `lib/SSH/Add.pm` reached `100.0%` statement coverage
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, default-key fallback, deduplication, missing default-key errors, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, stable socket env writing, SSH config include writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, and CLI `main` success/error paths
+- tests cover explicit key registration, default-key fallback, deduplication, missing default-key errors, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, and CLI `main` success/error paths
 
 ## Latest DD Source Proof
 

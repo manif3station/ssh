@@ -40,9 +40,17 @@ Duplicate paths are not written twice.
 
 ## Agent Behavior
 
-The skill checks the current `SSH_AUTH_SOCK` first. If that socket is alive, it is reused.
+The skill checks the current `SSH_AUTH_SOCK` first. If that socket is alive, it is reused and written to the managed env file.
 
-If `SSH_AUTH_SOCK` is missing or points at a dead agent, the skill tries the stable DD-managed socket:
+If `SSH_AUTH_SOCK` is missing, the skill reads:
+
+```text
+~/.developer-dashboard/ssh-agent/agent.env
+```
+
+and reuses that saved socket when it is still alive.
+
+If no saved socket is usable, the skill tries the stable DD-managed socket:
 
 ```text
 ~/.developer-dashboard/ssh-agent/agent.sock
@@ -60,7 +68,7 @@ The skill writes:
 ~/.developer-dashboard/ssh-agent/agent.env
 ```
 
-with the active `SSH_AUTH_SOCK`, and maintains an SSH config include so normal `ssh` commands can use the stable socket even when a new shell did not inherit the environment variable.
+with the active `SSH_AUTH_SOCK`, and maintains an SSH config include so normal `ssh` commands can use the active shared socket even when a new shell did not inherit the environment variable.
 
 ## Collector Behavior
 
