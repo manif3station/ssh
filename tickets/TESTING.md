@@ -28,12 +28,12 @@ cover -report text
 - Docker covered suite passed
 - `lib/SSH/Add.pm` reached `100.0%` statement coverage
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, and CLI `main` success/error paths
+- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, and CLI `main` success/error paths
 
-Latest covered result for `DD-038`:
+Latest covered result for `DD-039`:
 
 ```text
-Files=7, Tests=107
+Files=7, Tests=112
 lib/SSH/Add.pm    100.0   89.7   67.3  100.0
 ```
 
@@ -72,6 +72,7 @@ Observed result:
 - `ssh.list` returned table output by default
 - `ssh.list -o json` returned structured key status data
 - `ssh.ls` matched the list command behavior
+- a started agent socket different from the default managed path was used consistently by add and list code paths
 
 Latest DD source proof for `DD-038` used a temporary home with a generated no-passphrase test key and verified:
 
@@ -79,6 +80,14 @@ Latest DD source proof for `DD-038` used a temporary home with a generated no-pa
 - `dashboard ssh.list` printed a table with `KEY`, `STATUS`, `FILE`, and `FINGERPRINT`
 - `dashboard ssh.list -o json` returned one `loaded` key row
 - `dashboard ssh.ls -o json` returned the same list-mode JSON contract
+- the reported `agent` field reflected the active socket used by the command
+
+Latest DD source proof for `DD-039` used a temporary home, a generated no-passphrase key, and a deliberately stale `SSH_AUTH_SOCK=/dead/socket` environment. Verified:
+
+- `dashboard ssh.add demo_key` succeeded and loaded the key
+- `dashboard ssh.list -o json` returned the key as `loaded`
+- both commands reported the active socket in their `agent` field
+- the stale incoming `SSH_AUTH_SOCK` did not break add or list mode
 
 ## Installed DD Proof
 
@@ -96,6 +105,7 @@ Observed behavior:
 - the valid `~/.ssh/id_ed25519` registry entry remained
 - `dashboard ssh.list -o json` decoded successfully through the installed skill
 - `dashboard ssh.ls -o json` decoded successfully through the installed skill alias
+- the installed skill version is `0.06`
 
 ## Cleanup
 

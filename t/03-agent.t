@@ -72,6 +72,35 @@ is( scalar(@system_calls), 0, 'ssh-add -l health checks do not use noisy system 
 }
 
 {
+    my @commands;
+    my $runner = SSH::Add->new(
+        home          => $home,
+        skill_root    => $root,
+        env           => { SSH_AUTH_SOCK => '/stale/socket' },
+        no_global_env => 1,
+        system        => sub {
+            my ( $env, @cmd ) = @_;
+            push @commands, [ $env, @cmd ];
+            return 0;
+        },
+        capture => sub {
+            my ( $env, @cmd ) = @_;
+            return ( q{}, q{}, 2 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l' && $env->{SSH_AUTH_SOCK} eq '/stale/socket';
+            return ( 'The agent has no identities.', q{}, 1 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l' && $env->{SSH_AUTH_SOCK} eq '/actual/socket';
+            return ( q{}, q{}, 0 );
+        },
+        capture_command => sub {
+            my (@cmd) = @_;
+            return ( "SSH_AUTH_SOCK=/actual/socket; export SSH_AUTH_SOCK;\n", q{}, 0 );
+        },
+    );
+    is( $runner->ensure_agent, '/actual/socket', 'started agent may return a socket different from the managed default path' );
+    is( $runner->active_agent_socket, '/actual/socket', 'active socket tracks the started socket' );
+    $runner->run_ssh_add('~/.ssh/id_ed25519');
+    is( $commands[-1][0]{SSH_AUTH_SOCK}, '/actual/socket', 'run_ssh_add uses the active socket' );
+}
+
+{
     my $fail = SSH::Add->new(
         home            => tempdir( CLEANUP => 1 ),
         skill_root      => tempdir( CLEANUP => 1 ),

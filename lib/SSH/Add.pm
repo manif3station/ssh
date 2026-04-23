@@ -89,7 +89,7 @@ sub execute_list {
     return {
         mode     => 'list',
         output   => $output,
-        agent    => $self->agent_socket,
+        agent    => $self->active_agent_socket,
         registry => $self->keys_file,
         keys     => \@keys,
     };
@@ -113,7 +113,7 @@ sub add_keys {
 
     return {
         mode     => 'add',
-        agent    => $self->agent_socket,
+        agent    => $self->active_agent_socket,
         added    => \@added,
         registry => $self->keys_file,
         shell_env => $self->agent_env_file,
@@ -189,7 +189,7 @@ sub collector_check {
         return {
             mode     => 'collector',
             status   => $self->is_interactive ? 'prompted' : 'missing',
-            agent    => $self->agent_socket,
+            agent    => $self->active_agent_socket,
             loaded   => scalar(@keys) - scalar(@missing),
             missing  => \@missing,
             registry => $self->keys_file,
@@ -199,7 +199,7 @@ sub collector_check {
     return {
         mode     => 'collector',
         status   => 'ok',
-        agent    => $self->agent_socket,
+        agent    => $self->active_agent_socket,
         loaded   => scalar(@keys),
         missing  => [],
         registry => $self->keys_file,
@@ -249,7 +249,7 @@ sub start_agent {
 
 sub run_ssh_add {
     my ( $self, $key ) = @_;
-    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->agent_socket );
+    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->active_agent_socket );
     my $exit = $self->system_with_env( \%env, 'ssh-add', $self->expand_key_path($key) );
     die "ssh-add failed for $key\n" if $exit != 0;
     return 1;
@@ -257,7 +257,7 @@ sub run_ssh_add {
 
 sub loaded_key_fingerprints {
     my ($self) = @_;
-    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->agent_socket );
+    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->active_agent_socket );
     my ( $stdout, undef, $exit ) = $self->capture_with_env( \%env, 'ssh-add', '-l' );
     return () if $exit != 0;
     my @fingerprints;

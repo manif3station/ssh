@@ -10,6 +10,7 @@ dashboard ssh.add id_ed25519
 
 If the key exists, the command registers `~/.ssh/id_ed25519`, starts or reuses a usable agent, and runs `ssh-add` immediately. The JSON result includes:
 
+- `agent`: the active socket actually used for `ssh-add`
 - `registry`: the installed skill registry path, normally `~/.developer-dashboard/skills/ssh/config/ssh/keys.txt`
 - `shell_env`: the env file at `~/.ssh/ssh-agent/agent.env`
 - `shell_source`: the command to update the current shell, `source ~/.ssh/ssh-agent/agent.env`
@@ -159,3 +160,5 @@ List mode compares remembered keys against `ssh-add -l` by fingerprint:
 - `missing-file`: the registry entry points to a file that does not exist or cannot be fingerprinted
 
 The command expands `~/...` registry entries to the current home directory before checking the filesystem.
+
+List mode and collector mode also use the active socket selected by `ensure_agent`, not only the default managed path.

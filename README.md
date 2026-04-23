@@ -92,6 +92,8 @@ Successful output includes the exact installed registry and shell env paths:
 {"mode":"add","added":["~/.ssh/id_ed25519"],"registry":".../skills/ssh/config/ssh/keys.txt","shell_env":"~/.ssh/ssh-agent/agent.env","shell_source":"source ~/.ssh/ssh-agent/agent.env"}
 ```
 
+The `agent` field reports the active socket actually used for `ssh-add`. This matters on systems where the live agent socket can differ from the default managed socket path.
+
 If the key does not exist, the command fails before registering the key or calling `ssh-add`:
 
 ```bash
@@ -242,6 +244,7 @@ dashboard skills uninstall ssh
 - stale remembered entries for explicitly missing keys are removed during that rejection
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent
 - a dead `SSH_AUTH_SOCK` starts or reuses the managed agent without leaking raw `ssh-add -l` errors
+- add, collector, and list mode all use the active socket selected by `ensure_agent`
 - a live existing `SSH_AUTH_SOCK` is reused and written to the shell-readable env file
 - when a new session has no `SSH_AUTH_SOCK`, the skill reads the saved env file and reuses that socket if it is still alive
 - new shells source `~/.ssh/ssh-agent/agent.env` through the managed shell profile bridge

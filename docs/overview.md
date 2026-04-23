@@ -20,6 +20,8 @@ The skill also includes `dashboard ssh.list` and the alias `dashboard ssh.ls` so
 
 This design avoids the single-session trap. Starting an agent in one terminal is not enough unless later terminals and collectors can find the same socket. The saved env file lets the skill rediscover a live socket when `SSH_AUTH_SOCK` is missing, and the managed `IdentityAgent` include gives `ssh` a persistent path to the active shared agent.
 
+The skill now uses that active socket consistently for `ssh.add`, list mode, and collector checks. That avoids failures on systems where the actual live socket selected by `ssh-agent` differs from the default managed path.
+
 The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
 
 Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `config/ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.

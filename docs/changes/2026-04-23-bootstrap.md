@@ -23,3 +23,4 @@ Bootstrap the `ssh` skill with smart key registration, managed ssh-agent repair,
 - `dashboard ssh.list` and `dashboard ssh.ls` for managed-key inspection
 - table and JSON output modes for key listing
 - loaded, not-loaded, and missing-file status reporting for remembered keys
+- active-socket use for add, list, and collector flows when the live socket differs from the default managed path

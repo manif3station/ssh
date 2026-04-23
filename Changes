@@ -1,5 +1,10 @@
 Revision history for ssh
 
+0.06 2026-04-24
+ - fix `ssh.add`, collector checks, and list mode to use the active ssh-agent socket selected by `ensure_agent`
+ - handle agent start cases where the live socket differs from the default managed socket path
+ - return the active socket in add, collector, and list output
+
 0.05 2026-04-23
  - add `dashboard ssh.list` to show all managed keys from the skill registry
  - add `dashboard ssh.ls` as an alias of `dashboard ssh.list`

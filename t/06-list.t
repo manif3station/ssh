@@ -69,6 +69,22 @@ sub harness {
 }
 
 {
+    my ( $runner, $home ) = harness();
+    open my $fh, '>', File::Spec->catfile( $home, '.ssh', 'work.pub' ) or die $!;
+    close $fh;
+    $runner->{env}{SSH_AUTH_SOCK} = '/actual/socket';
+    $runner->write_keys('~/.ssh/work');
+    $runner->{capture} = sub {
+        my ( $env, @cmd ) = @_;
+        return ( "256 SHA256:key1 card\n", q{}, 0 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l' && $env->{SSH_AUTH_SOCK} eq '/actual/socket';
+        return ( q{}, q{}, 2 );
+    };
+    my $result = $runner->execute_list('-o', 'json');
+    is( $result->{agent}, '/actual/socket', 'list mode reports the active socket' );
+    is( $result->{keys}[0]{status}, 'loaded', 'list mode reads loaded fingerprints from the active socket' );
+}
+
+{
     my ( $runner ) = harness();
     like( eval { $runner->execute_list('-o'); 1 } ? q{} : $@, qr/Missing output format/, 'missing output value is rejected' );
     like( eval { $runner->execute_list('-o', 'yaml'); 1 } ? q{} : $@, qr/Unsupported output format/, 'unsupported output value is rejected' );
