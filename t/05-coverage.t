@@ -198,6 +198,113 @@ use SSH::Add;
 }
 
 {
+    my $runner = SSH::Add->new(
+        env => { DISPLAY => ':1' },
+        capture_command => sub {
+            my (@cmd) = @_;
+            return ( q{}, q{}, 0 ) if $cmd[-1] =~ /zenity/;
+            return ( q{}, q{}, 1 );
+        },
+    );
+    ok( $runner->can_gui_prompt, 'gui prompt is available when display exists and a backend command is present' );
+    ok( !$runner->command_available(undef), 'command_available returns false for undefined command names' );
+    ok( !$runner->command_available('missing-backend'), 'command_available returns false for missing commands' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        env => {},
+        capture_command => sub { return ( q{}, q{}, 1 ) },
+    );
+    ok( !$runner->can_gui_prompt, 'gui prompt is unavailable without display or wayland session' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        env => { WAYLAND_DISPLAY => 'wayland-0' },
+        capture_command => sub {
+            my (@cmd) = @_;
+            return ( q{}, q{}, 0 ) if $cmd[-1] =~ /ssh-askpass/;
+            return ( q{}, q{}, 1 );
+        },
+    );
+    ok( $runner->can_gui_prompt, 'wayland session can use askpass backend discovery' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        env => { DISPLAY => ':1' },
+        capture_command => sub {
+            my (@cmd) = @_;
+            return ( q{}, q{}, 0 ) if $cmd[-1] =~ /x11-ssh-askpass/;
+            return ( q{}, q{}, 1 );
+        },
+    );
+    ok( $runner->can_gui_prompt, 'x11-ssh-askpass backend is accepted when available' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        env => { DISPLAY => ':1' },
+        capture_command => sub { return ( q{}, q{}, 1 ) },
+    );
+    ok( !$runner->can_gui_prompt, 'display alone is not enough without any askpass backend' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        system_no_tty => sub {
+            my ( $env, @cmd ) = @_;
+            return $env->{SSH_ASKPASS} && $env->{SSH_ASKPASS_REQUIRE} eq 'force' ? 0 : 1;
+        },
+    );
+    like( $runner->collector_prompt_message('~/.ssh/id_ed25519'), qr/needs the passphrase/, 'collector prompt message is explanatory' );
+    ok( $runner->run_ssh_add_askpass('~/.ssh/id_ed25519'), 'run_ssh_add_askpass succeeds through askpass environment' );
+    my $helper = $runner->write_askpass_helper;
+    ok( -x $helper, 'askpass helper script is created as executable' );
+    is( $runner->write_askpass_helper, $helper, 'askpass helper is reused after first creation' );
+}
+
+{
+    my @calls;
+    my $runner = SSH::Add->new(
+        env => {},
+        system_no_tty => sub {
+            my ( $env, @cmd ) = @_;
+            push @calls, [ $env, @cmd ];
+            return 0;
+        },
+    );
+    ok( $runner->run_ssh_add_askpass('~/.ssh/id_ed25519'), 'askpass path succeeds when display fallback is required' );
+    is( $calls[0][0]{DISPLAY}, ':0', 'askpass path supplies DISPLAY fallback when no UI env is preset' );
+}
+
+{
+    my @calls;
+    my $runner = SSH::Add->new(
+        env => { WAYLAND_DISPLAY => 'wayland-0' },
+        system_no_tty => sub {
+            my ( $env, @cmd ) = @_;
+            push @calls, [ $env, @cmd ];
+            return 0;
+        },
+    );
+    ok( $runner->run_ssh_add_askpass('~/.ssh/id_ed25519'), 'askpass path succeeds with wayland display' );
+    ok( !exists $calls[0][0]{DISPLAY}, 'askpass path does not force DISPLAY when wayland is already available' );
+}
+
+{
+    my $runner = SSH::Add->new(
+        system_no_tty => sub { return 1 },
+    );
+    like(
+        eval { $runner->run_ssh_add_askpass('~/.ssh/id_ed25519'); 1 } ? q{} : $@,
+        qr/ssh-add failed for ~\/\.ssh\/id_ed25519/,
+        'askpass path reports ssh-add failure'
+    );
+}
+
+{
     my $runner = SSH::Add::TestWait->new;
     is( $runner->wait_for_agent('/tmp/test-agent.sock'), 1, 'wait_for_agent retries until socket responds' );
     is( $runner->{checks}, 2, 'wait_for_agent performed retry checks' );
@@ -220,6 +327,19 @@ use SSH::Add;
     $runner->ensure_ssh_config_bridge;
     my $content = _slurp( File::Spec->catfile( $home, '.ssh', 'config' ) );
     is( () = $content =~ /Include ~\/\.ssh\/developer-dashboard-ssh-agent\.conf/g, 1, 'managed include is not duplicated' );
+}
+
+{
+    my $runner = SSH::Add->new;
+    is( $runner->result_exit_code( { mode => 'collector', status => 'missing' } ), 1, 'collector missing result maps to nonzero exit' );
+    is( $runner->result_exit_code( { mode => 'collector', status => 'ok' } ), 0, 'collector ok result maps to zero exit' );
+    is( $runner->result_exit_code( { mode => 'add', status => 'missing' } ), 0, 'non-collector results stay zero' );
+}
+
+{
+    my $runner = SSH::Add->new;
+    my $exit = $runner->system_with_env_no_tty( { PATH => $ENV{PATH} }, $^X, '-e', 'exit 4' );
+    is( $exit, 4, 'default no-tty system runner returns command exit code' );
 }
 
 {

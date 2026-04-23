@@ -82,6 +82,8 @@ Latest DD source proof for `DD-038` used a temporary home with a generated no-pa
 - `dashboard ssh.list -o json` returned one `loaded` key row
 - `dashboard ssh.ls -o json` returned the same list-mode JSON contract
 - the reported `agent` field reflected the active socket used by the command
+- `dashboard ssh.add --collector` returned `status: missing` with a nonzero exit when no GUI prompt path was available
+- `dashboard ssh.add --collector` returned `status: prompted` after a successful askpass-backed add path in a GUI-capable non-interactive session
 
 Latest DD source proof for `DD-039` used a temporary home, a generated no-passphrase key, and a deliberately stale `SSH_AUTH_SOCK=/dead/socket` environment. Verified:
 
@@ -89,6 +91,11 @@ Latest DD source proof for `DD-039` used a temporary home, a generated no-passph
 - `dashboard ssh.list -o json` returned the key as `loaded`
 - both commands reported the active socket in their `agent` field
 - the stale incoming `SSH_AUTH_SOCK` did not break add or list mode
+
+Latest DD source proof for `DD-041` used the latest source checkout and verified two collector cases:
+
+- non-GUI case: a fake `ssh-add -l` path with a remembered test key returned `rc=1`, `status=missing`, and one missing key
+- GUI case: a temporary real `ssh-agent`, generated no-passphrase key, and `DISPLAY=:1` returned `rc=0`, `status=prompted`, and zero missing keys
 
 ## Installed DD Proof
 
@@ -108,6 +115,19 @@ Observed behavior:
 - `dashboard ssh.ls -o json` decoded successfully through the installed skill alias
 - the installed skill version is `0.06`
 - the installed skill version is `0.07`
+- the installed skill version is `0.08`
+
+Installed DD proof for `DD-041` verified the same two collector cases through the installed `dashboard` command:
+
+- non-GUI case: `dashboard ssh.add --collector` returned `rc=1`, `status=missing`, and one missing key
+- GUI case: `dashboard ssh.add --collector` returned `rc=0`, `status=prompted`, and zero missing keys while using a temporary real agent and generated key
+
+Latest covered result for `DD-041`:
+
+```text
+Files=7, Tests=141
+lib/SSH/Add.pm    100.0   88.8   67.4  100.0
+```
 
 ## Cleanup
 

@@ -55,13 +55,30 @@ sub runner_for {
     my $result = $runner->execute('--collector');
     is( $result->{status}, 'missing', 'non-interactive collector reports missing keys' );
     is_deeply( $result->{missing}, ['~/.ssh/id_rsa'], 'collector reports only unloaded configured key' );
+    my $out = File::Spec->catfile( $home, 'collector.json' );
+    open my $oldout, '>&', \*STDOUT or die $!;
+    open STDOUT, '>', $out or die $!;
+    my $exit = $runner->main('--collector');
+    open STDOUT, '>&', $oldout or die $!;
+    is( $exit, 1, 'non-interactive missing collector exits nonzero for red indicator state' );
 }
 
 {
+    my $loaded = "256 SHA256:key1 card\n";
     my ( $runner, $home, $system_calls, $stderr ) = runner_for(
-        loaded      => "256 SHA256:key1 card\n",
         interactive => 1,
     );
+    $runner->{capture} = sub {
+        my ( $env, @cmd ) = @_;
+        return ( $loaded, q{}, 0 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l';
+        return ( q{}, q{}, 0 );
+    };
+    $runner->{system} = sub {
+        my ( $env, @cmd ) = @_;
+        push @{$system_calls}, [ $env, @cmd ];
+        $loaded = "256 SHA256:key1 card\n256 SHA256:key2 card\n" if $cmd[0] eq 'ssh-add' && $cmd[1] ne '-l';
+        return 0;
+    };
     for my $name (qw(id_ed25519 id_rsa)) {
         open my $fh, '>', File::Spec->catfile( $home, '.ssh', "$name.pub" ) or die $!;
         close $fh;
@@ -71,6 +88,35 @@ sub runner_for {
     is( $result->{status}, 'prompted', 'interactive collector prompts for missing keys' );
     like( $$stderr, qr/remembered but not loaded/, 'collector explains why passphrase is requested' );
     is( $system_calls->[-1][1], 'ssh-add', 'interactive collector runs ssh-add for missing key' );
+}
+
+{
+    my ( $runner, $home, $system_calls, $stderr ) = runner_for(
+    );
+    for my $name (qw(id_ed25519 id_rsa)) {
+        open my $fh, '>', File::Spec->catfile( $home, '.ssh', "$name.pub" ) or die $!;
+        close $fh;
+    }
+    my @askpass_calls;
+    my $loaded = "256 SHA256:key1 card\n";
+    $runner->{can_gui_prompt} = 1;
+    $runner->{system_no_tty} = sub {
+        my ( $env, @cmd ) = @_;
+        push @askpass_calls, [ $env, @cmd ];
+        $loaded = "256 SHA256:key1 card\n256 SHA256:key2 card\n" if $cmd[0] eq 'ssh-add' && $cmd[1] ne '-l';
+        return 0;
+    };
+    $runner->{capture} = sub {
+        my ( $env, @cmd ) = @_;
+        return ( $loaded, q{}, 0 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l';
+        return ( q{}, q{}, 0 );
+    };
+    $runner->write_keys(qw(~/.ssh/id_ed25519 ~/.ssh/id_rsa));
+    my $result = $runner->execute('--collector');
+    is( $result->{status}, 'prompted', 'gui-capable collector prompts through askpass path' );
+    is_deeply( $result->{missing}, [], 'gui prompt clears missing keys after successful askpass add' );
+    is( $askpass_calls[-1][1], 'ssh-add', 'gui collector uses ssh-add through no-tty askpass path' );
+    like( $$stderr, qr/remembered but not loaded/, 'gui collector still explains the passphrase request' );
 }
 
 {

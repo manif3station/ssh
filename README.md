@@ -129,6 +129,12 @@ dashboard ssh.add --collector
 
 Collector mode reads the remembered keys, checks `ssh-add -l`, explains missing keys before prompting, and avoids hanging in non-interactive environments.
 
+If the collector is attached to an interactive terminal, it explains the reason and then runs `ssh-add` in that terminal.
+
+If the collector is non-interactive but a desktop session is available, the skill uses an askpass-backed `ssh-add` path so the user can get a GUI passphrase dialog instead of a blocked background process. On macOS that means an AppleScript-backed password dialog. On Linux desktop sessions it can use `zenity`, `kdialog`, `ssh-askpass`, or `x11-ssh-askpass`.
+
+If the collector is non-interactive and no GUI prompt backend is available, it does not hang or fake success. It returns collector status `missing` and exits nonzero so DD can surface the collector in an alert state.
+
 List managed keys as a table:
 
 ```bash
@@ -213,7 +219,9 @@ dashboard ssh.add --collector
 
 If a remembered key is missing from `ssh-add -l` and the collector is running with an interactive terminal, the skill explains why it is asking for the passphrase before it runs `ssh-add`.
 
-If the collector is non-interactive, it reports the missing key in JSON instead of hanging on a passphrase prompt.
+If the collector is non-interactive but a GUI askpass path is available, it opens a desktop passphrase dialog and keeps the same explanation text.
+
+If the collector is non-interactive and no GUI path is available, it returns status `missing` and a nonzero exit code so DD can turn the indicator red instead of blocking on a background passphrase prompt.
 
 Inspect managed keys:
 

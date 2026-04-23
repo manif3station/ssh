@@ -24,6 +24,12 @@ The skill now uses that active socket consistently for `ssh.add`, list mode, and
 
 `ssh.add` is now idempotent for already loaded keys. If the key fingerprint is already present in the active agent, the skill records that under `already_loaded` and skips another `ssh-add` passphrase prompt.
 
+The collector now has three explicit prompt modes when remembered keys are missing:
+
+- interactive terminal: explain the reason and run `ssh-add` in the terminal
+- non-interactive desktop session: explain the reason and run `ssh-add` through a GUI askpass backend
+- non-interactive without GUI support: return `missing` and a nonzero exit so DD can show an alert indicator state
+
 The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
 
 Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `config/ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.

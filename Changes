@@ -1,5 +1,10 @@
 Revision history for ssh
 
+0.08 2026-04-24
+ - make `ssh.add --collector` use a GUI askpass-backed `ssh-add` path when a desktop session and askpass backend are available
+ - make non-interactive collector runs return nonzero when remembered keys are still missing so DD can show an alert indicator state instead of hanging
+ - keep interactive collector runs explanatory and unchanged for terminal-driven passphrase entry
+
 0.07 2026-04-24
  - make `ssh.add` skip `ssh-add` when the key fingerprint is already loaded in the active agent
  - return already loaded keys in `already_loaded` instead of prompting for the passphrase again

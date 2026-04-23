@@ -7,6 +7,7 @@ use Cwd qw(getcwd abs_path);
 use File::Basename qw(dirname basename);
 use File::Path qw(make_path);
 use File::Spec;
+use File::Temp qw(tempfile);
 use JSON::PP qw(encode_json);
 
 my $MODULE_FILE = abs_path(__FILE__) || __FILE__;
@@ -26,7 +27,7 @@ sub main {
         return 2;
     }
     print encode_json($result), "\n";
-    return 0;
+    return $self->result_exit_code($result);
 }
 
 sub main_list {
@@ -179,25 +180,28 @@ sub render_list_table {
 sub collector_check {
     my ($self) = @_;
     my @keys = $self->read_keys;
-    my @loaded = $self->loaded_key_fingerprints;
-    my %loaded = map { $_ => 1 } @loaded;
-    my @missing;
-
-    for my $key (@keys) {
-        my $fingerprint = $self->key_fingerprint($key);
-        push @missing, $key if !$fingerprint || !$loaded{$fingerprint};
-    }
+    my @missing = $self->missing_keys(@keys);
 
     if (@missing) {
+        my $prompted = 0;
         if ( $self->is_interactive ) {
             for my $key (@missing) {
                 $self->explain_collector_prompt($key);
                 $self->run_ssh_add($key);
             }
+            $prompted = 1;
         }
+        elsif ( $self->can_gui_prompt ) {
+            for my $key (@missing) {
+                $self->explain_collector_prompt($key);
+                $self->run_ssh_add_askpass($key);
+            }
+            $prompted = 1;
+        }
+        @missing = $self->missing_keys(@keys);
         return {
             mode     => 'collector',
-            status   => $self->is_interactive ? 'prompted' : 'missing',
+            status   => @missing ? 'missing' : $prompted ? 'prompted' : 'ok',
             agent    => $self->active_agent_socket,
             loaded   => scalar(@keys) - scalar(@missing),
             missing  => \@missing,
@@ -213,6 +217,20 @@ sub collector_check {
         missing  => [],
         registry => $self->keys_file,
     };
+}
+
+sub missing_keys {
+    my ( $self, @keys ) = @_;
+    my @loaded = $self->loaded_key_fingerprints;
+    my %loaded = map { $_ => 1 } @loaded;
+    my @missing;
+
+    for my $key (@keys) {
+        my $fingerprint = $self->key_fingerprint($key);
+        push @missing, $key if !$fingerprint || !$loaded{$fingerprint};
+    }
+
+    return @missing;
 }
 
 sub ensure_agent {
@@ -264,6 +282,23 @@ sub run_ssh_add {
     return 1;
 }
 
+sub run_ssh_add_askpass {
+    my ( $self, $key ) = @_;
+    my $askpass = $self->write_askpass_helper;
+    my %env = (
+        %{ $self->{env} || \%ENV },
+        SSH_AUTH_SOCK                       => $self->active_agent_socket,
+        SSH_ASKPASS                         => $askpass,
+        SSH_ASKPASS_REQUIRE                 => 'force',
+        DEVELOPER_DASHBOARD_SSH_ASKPASS_KEY => $key,
+        DEVELOPER_DASHBOARD_SSH_ASKPASS_MESSAGE => $self->collector_prompt_message($key),
+    );
+    $env{DISPLAY} = ':0' if !$env{DISPLAY} && !$env{WAYLAND_DISPLAY};
+    my $exit = $self->system_with_env_no_tty( \%env, 'ssh-add', $self->expand_key_path($key) );
+    die "ssh-add failed for $key\n" if $exit != 0;
+    return 1;
+}
+
 sub loaded_key_fingerprints {
     my ($self) = @_;
     my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->active_agent_socket );
@@ -309,6 +344,11 @@ sub explain_collector_prompt {
     print {$fh} "Developer Dashboard ssh.door-opener found that $key is remembered but not loaded in ssh-agent.\n";
     print {$fh} "Enter the key passphrase now so later ssh connections do not interrupt your workflow.\n";
     return 1;
+}
+
+sub collector_prompt_message {
+    my ( $self, $key ) = @_;
+    return "Developer Dashboard ssh.door-opener needs the passphrase for $key so later SSH connections do not interrupt your workflow.";
 }
 
 sub remember_keys {
@@ -435,6 +475,64 @@ sub ensure_shell_agent_bridge {
     return 1;
 }
 
+sub can_gui_prompt {
+    my ($self) = @_;
+    return $self->{can_gui_prompt} if exists $self->{can_gui_prompt};
+    return 1 if $^O eq 'darwin' && $self->command_available('osascript');
+    return 0 if !( $self->{env}{DISPLAY} || $ENV{DISPLAY} || $self->{env}{WAYLAND_DISPLAY} || $ENV{WAYLAND_DISPLAY} );
+    return 1 if $self->command_available('zenity');
+    return 1 if $self->command_available('kdialog');
+    return 1 if $self->command_available('ssh-askpass');
+    return 1 if $self->command_available('x11-ssh-askpass');
+    return 0;
+}
+
+sub command_available {
+    my ( $self, $name ) = @_;
+    return 0 if !defined $name || $name eq q{};
+    my ( undef, undef, $exit ) = $self->capture_command( 'sh', '-lc', "command -v '$name' >/dev/null 2>&1" );
+    return $exit == 0 ? 1 : 0;
+}
+
+sub write_askpass_helper {
+    my ($self) = @_;
+    return $self->{askpass_helper} if $self->{askpass_helper};
+    my ( $fh, $path ) = tempfile( 'ssh-askpass-XXXX', TMPDIR => 1, UNLINK => 0 );
+    print {$fh} <<'SH';
+#!/bin/sh
+message="${DEVELOPER_DASHBOARD_SSH_ASKPASS_MESSAGE:-Developer Dashboard needs your SSH passphrase.}"
+if command -v osascript >/dev/null 2>&1; then
+  /usr/bin/osascript <<OSA
+set dialogText to system attribute "DEVELOPER_DASHBOARD_SSH_ASKPASS_MESSAGE"
+display dialog dialogText default answer "" with hidden answer buttons {"Cancel", "OK"} default button "OK"
+text returned of result
+OSA
+  exit $?
+fi
+if command -v zenity >/dev/null 2>&1; then
+  zenity --password --title="Developer Dashboard SSH" --text="$message"
+  exit $?
+fi
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "Developer Dashboard SSH" --password "$message"
+  exit $?
+fi
+if command -v ssh-askpass >/dev/null 2>&1; then
+  ssh-askpass "$message"
+  exit $?
+fi
+if command -v x11-ssh-askpass >/dev/null 2>&1; then
+  x11-ssh-askpass "$message"
+  exit $?
+fi
+exit 1
+SH
+    close $fh;
+    chmod 0700, $path or die "Unable to chmod $path: $!";
+    $self->{askpass_helper} = $path;
+    return $path;
+}
+
 sub shell_profile_file {
     my ($self) = @_;
     return $self->{shell_profile_file} if exists $self->{shell_profile_file};
@@ -504,6 +602,16 @@ sub system_with_env {
     return $? >> 8;
 }
 
+sub system_with_env_no_tty {
+    my ( $self, $env, @cmd ) = @_;
+    return $self->{system_no_tty}->( $env, @cmd ) if $self->{system_no_tty};
+    local %ENV = %{$env};
+    open my $stdin, '<', File::Spec->devnull() or die "Unable to open " . File::Spec->devnull() . ": $!";
+    local *STDIN = $stdin;
+    system @cmd;
+    return $? >> 8;
+}
+
 sub capture_with_env {
     my ( $self, $env, @cmd ) = @_;
     return $self->{capture}->( $env, @cmd ) if $self->{capture};
@@ -529,6 +637,12 @@ sub is_interactive {
     my ($self) = @_;
     return $self->{interactive} if exists $self->{interactive};
     return -t STDIN ? 1 : 0;
+}
+
+sub result_exit_code {
+    my ( $self, $result ) = @_;
+    return 1 if ref($result) eq 'HASH' && ( $result->{mode} || q{} ) eq 'collector' && ( $result->{status} || q{} ) eq 'missing';
+    return 0;
 }
 
 sub keys_file {

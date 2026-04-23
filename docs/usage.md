@@ -149,13 +149,27 @@ The managed socket and env file are intentionally kept outside `~/.developer-das
 Collector mode compares remembered keys against `ssh-add -l` by fingerprint. If a key is remembered but missing:
 
 - interactive collector runs explain the passphrase request and then run `ssh-add`
-- non-interactive collector runs report the missing key in JSON and do not hang
+- non-interactive collector runs with a desktop session use an askpass-backed `ssh-add` path
+- non-interactive collector runs without a GUI askpass path return nonzero so DD can turn the indicator red instead of hanging
 
 Example missing-key payload shape:
 
 ```json
 {"mode":"collector","status":"missing","missing":["~/.ssh/id_ed25519"]}
 ```
+
+Example prompted payload shape after the user enters the passphrase successfully:
+
+```json
+{"mode":"collector","status":"prompted","missing":[]}
+```
+
+GUI collector prompting is attempted only when there is both:
+
+- a desktop session signal such as `DISPLAY` or `WAYLAND_DISPLAY`
+- an askpass backend such as `zenity`, `kdialog`, `ssh-askpass`, or `x11-ssh-askpass`
+
+On macOS, the skill can also use `osascript` for the passphrase dialog path.
 
 ## List Behavior
 
