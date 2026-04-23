@@ -1,5 +1,11 @@
 Revision history for ssh
 
+0.05 2026-04-23
+ - add `dashboard ssh.list` to show all managed keys from the skill registry
+ - add `dashboard ssh.ls` as an alias of `dashboard ssh.list`
+ - support `-o table` by default and `-o json` for structured output
+ - include each key's registry entry, expanded file path, loaded status, and fingerprint when available
+
 0.04 2026-04-23
  - fix installed `ssh.add` behavior for stale `SSH_AUTH_SOCK` values by using quiet health checks
  - reject explicit missing keys before writing them to the registry or running `ssh-add`

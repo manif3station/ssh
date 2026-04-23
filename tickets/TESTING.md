@@ -28,13 +28,13 @@ cover -report text
 - Docker covered suite passed
 - `lib/SSH/Add.pm` reached `100.0%` statement coverage
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, and CLI `main` success/error paths
+- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, and CLI `main` success/error paths
 
-Latest covered result for `DD-037`:
+Latest covered result for `DD-038`:
 
 ```text
-Files=6, Tests=89
-lib/SSH/Add.pm    100.0   90.4   63.6  100.0
+Files=7, Tests=107
+lib/SSH/Add.pm    100.0   89.7   67.3  100.0
 ```
 
 The gate uses the project-required module statement and subroutine thresholds for the skill implementation.
@@ -69,6 +69,16 @@ Observed result:
 - missing explicit keys did not include a Perl file/line suffix
 - successful explicit keys returned `registry`, `shell_env`, and `shell_source`
 - the managed shell profile bridge was written for future shells
+- `ssh.list` returned table output by default
+- `ssh.list -o json` returned structured key status data
+- `ssh.ls` matched the list command behavior
+
+Latest DD source proof for `DD-038` used a temporary home with a generated no-passphrase test key and verified:
+
+- `dashboard ssh.add demo_key` registered and loaded the key
+- `dashboard ssh.list` printed a table with `KEY`, `STATUS`, `FILE`, and `FINGERPRINT`
+- `dashboard ssh.list -o json` returned one `loaded` key row
+- `dashboard ssh.ls -o json` returned the same list-mode JSON contract
 
 ## Installed DD Proof
 
@@ -84,6 +94,8 @@ Observed behavior:
 - `dashboard ssh.add id_rsa` returned a clear missing-key error because `~/.ssh/id_rsa` was absent
 - the stale `~/.ssh/id_rsa` registry entry was removed
 - the valid `~/.ssh/id_ed25519` registry entry remained
+- `dashboard ssh.list -o json` decoded successfully through the installed skill
+- `dashboard ssh.ls -o json` decoded successfully through the installed skill alias
 
 ## Cleanup
 

@@ -63,6 +63,8 @@ The include points `IdentityAgent` at the active shared agent socket. If a live 
 This skill adds:
 
 - `dashboard ssh.add`
+- `dashboard ssh.list`
+- `dashboard ssh.ls`
 - a skill collector named `ssh.door-opener`
 - prompt and indicator integration through the configured collector icon `🚪`
 
@@ -123,6 +125,37 @@ dashboard ssh.add --collector
 
 Collector mode reads the remembered keys, checks `ssh-add -l`, explains missing keys before prompting, and avoids hanging in non-interactive environments.
 
+List managed keys as a table:
+
+```bash
+dashboard ssh.list
+```
+
+`dashboard ssh.ls` is an alias:
+
+```bash
+dashboard ssh.ls
+```
+
+The table includes:
+
+- `KEY`: the registry entry from `config/ssh/keys.txt`
+- `STATUS`: `loaded`, `not-loaded`, or `missing-file`
+- `FILE`: the expanded filesystem path used by the program
+- `FINGERPRINT`: the key fingerprint when the public key or private key can be read
+
+JSON output:
+
+```bash
+dashboard ssh.list -o json
+```
+
+Table output can also be requested explicitly:
+
+```bash
+dashboard ssh.list -o table
+```
+
 ## Key Registry
 
 Remembered keys are stored in:
@@ -178,6 +211,18 @@ If a remembered key is missing from `ssh-add -l` and the collector is running wi
 
 If the collector is non-interactive, it reports the missing key in JSON instead of hanging on a passphrase prompt.
 
+Inspect managed keys:
+
+```bash
+dashboard ssh.list
+```
+
+Inspect managed keys as JSON:
+
+```bash
+dashboard ssh.ls -o json
+```
+
 Inspect skill metadata:
 
 ```bash
@@ -202,6 +247,10 @@ dashboard skills uninstall ssh
 - new shells source `~/.ssh/ssh-agent/agent.env` through the managed shell profile bridge
 - the current shell may need `source ~/.ssh/ssh-agent/agent.env` after the first successful add
 - collector mode does not hang when there is no interactive terminal
+- list mode works when no keys are configured and returns an empty table or empty JSON list
+- list mode marks a remembered key as `missing-file` when the key file no longer exists
+- list mode marks a remembered key as `not-loaded` when the file exists but its fingerprint is absent from `ssh-add -l`
+- list mode marks a remembered key as `loaded` when the fingerprint is present in `ssh-add -l`
 - the skill does not overwrite the user's existing `~/.ssh/config`; it adds a managed include block only when needed
 - if a configured key has no `.pub` file, the collector treats it as missing because it cannot safely compare the fingerprint against `ssh-add -l`
 

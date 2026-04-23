@@ -20,3 +20,6 @@ Bootstrap the `ssh` skill with smart key registration, managed ssh-agent repair,
 - clean user-facing error messages without Perl source file suffixes for expected command failures
 - shell startup bridge for `~/.ssh/ssh-agent/agent.env`
 - successful add output that includes the registry, shell env file, and source command
+- `dashboard ssh.list` and `dashboard ssh.ls` for managed-key inspection
+- table and JSON output modes for key listing
+- loaded, not-loaded, and missing-file status reporting for remembered keys

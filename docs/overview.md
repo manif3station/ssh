@@ -6,9 +6,12 @@ It records key paths in `config/ssh/keys.txt`, ensures there is a usable ssh-age
 
 The skill is intentionally proactive. It moves passphrase prompts to the beginning of the workflow, either when the user explicitly runs `dashboard ssh.add` or when the `door-opener` collector sees that remembered keys are absent from the agent.
 
+The skill also includes `dashboard ssh.list` and the alias `dashboard ssh.ls` so users can inspect the registry without opening `config/ssh/keys.txt`. List mode reports each managed key, its expanded filesystem path, whether it is loaded in `ssh-add -l`, and its fingerprint when available.
+
 ## Runtime Design
 
 - remembered keys live in `config/ssh/keys.txt`
+- `dashboard ssh.list` reads that registry and reports `loaded`, `not-loaded`, or `missing-file`
 - the managed socket is `~/.ssh/ssh-agent/agent.sock`
 - the shell-readable env file is `~/.ssh/ssh-agent/agent.env`
 - a shell startup bridge sources `~/.ssh/ssh-agent/agent.env` from `~/.bashrc`, `~/.zshrc`, or `~/.profile`

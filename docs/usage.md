@@ -42,6 +42,37 @@ dashboard ssh.add --collector
 
 Installed through DD, the collector runs this command every 10 seconds through `config/config.json`.
 
+List managed keys:
+
+```bash
+dashboard ssh.list
+```
+
+Alias:
+
+```bash
+dashboard ssh.ls
+```
+
+The default table output has these columns:
+
+- `KEY`: the path as stored in `config/ssh/keys.txt`
+- `STATUS`: `loaded`, `not-loaded`, or `missing-file`
+- `FILE`: the expanded filesystem path
+- `FINGERPRINT`: the fingerprint when available
+
+JSON output:
+
+```bash
+dashboard ssh.list -o json
+```
+
+Explicit table output:
+
+```bash
+dashboard ssh.list -o table
+```
+
 ## Key Registry
 
 The key registry is:
@@ -57,6 +88,8 @@ Bare key names are stored as home-relative paths such as:
 ```
 
 Duplicate paths are not written twice.
+
+`ssh.list` and `ssh.ls` read this registry directly. If the file is absent, list mode returns no keys instead of failing.
 
 ## Agent Behavior
 
@@ -116,3 +149,13 @@ Example missing-key payload shape:
 ```json
 {"mode":"collector","status":"missing","missing":["~/.ssh/id_ed25519"]}
 ```
+
+## List Behavior
+
+List mode compares remembered keys against `ssh-add -l` by fingerprint:
+
+- `loaded`: the key file exists and its fingerprint appears in `ssh-add -l`
+- `not-loaded`: the key file exists but its fingerprint is absent from `ssh-add -l`
+- `missing-file`: the registry entry points to a file that does not exist or cannot be fingerprinted
+
+The command expands `~/...` registry entries to the current home directory before checking the filesystem.

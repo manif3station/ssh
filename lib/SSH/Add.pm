@@ -29,6 +29,23 @@ sub main {
     return 0;
 }
 
+sub main_list {
+    my ( $class, @argv ) = @_;
+    my $self = ref($class) ? $class : $class->new;
+    my $result = eval { $self->execute_list(@argv) };
+    if ( my $error = $@ ) {
+        chomp $error;
+        print STDERR "$error\n";
+        return 2;
+    }
+    if ( $result->{output} eq 'json' ) {
+        print encode_json($result), "\n";
+        return 0;
+    }
+    print $self->render_list_table( $result->{keys} );
+    return 0;
+}
+
 sub execute {
     my ( $self, @argv ) = @_;
     my $collector = 0;
@@ -50,6 +67,32 @@ sub execute {
 
     return $self->collector_check if $collector;
     return $self->add_keys(@keys);
+}
+
+sub execute_list {
+    my ( $self, @argv ) = @_;
+    my $output = 'table';
+    while (@argv) {
+        my $arg = shift @argv;
+        if ( $arg eq '-o' || $arg eq '--output' ) {
+            die "Missing output format after $arg\n" if !@argv;
+            $output = shift @argv;
+            next;
+        }
+        die "Unsupported option: $arg\n";
+    }
+    die "Unsupported output format: $output\n" if $output ne 'table' && $output ne 'json';
+
+    $self->ensure_skill_layout;
+    $self->ensure_agent;
+    my @keys = $self->managed_key_status_rows;
+    return {
+        mode     => 'list',
+        output   => $output,
+        agent    => $self->agent_socket,
+        registry => $self->keys_file,
+        keys     => \@keys,
+    };
 }
 
 sub add_keys {
@@ -76,6 +119,52 @@ sub add_keys {
         shell_env => $self->agent_env_file,
         shell_source => 'source ~/.ssh/ssh-agent/agent.env',
     };
+}
+
+sub managed_key_status_rows {
+    my ($self) = @_;
+    my @keys = $self->read_keys;
+    my @loaded = $self->loaded_key_fingerprints;
+    my %loaded = map { $_ => 1 } @loaded;
+    my @rows;
+
+    for my $key (@keys) {
+        my $file = $self->expand_key_path($key);
+        my $fingerprint = $self->key_fingerprint($key);
+        my $status = !$fingerprint ? 'missing-file' : $loaded{$fingerprint} ? 'loaded' : 'not-loaded';
+        push @rows, {
+            key         => $key,
+            file        => $file,
+            status      => $status,
+            loaded      => $status eq 'loaded' ? JSON::PP::true : JSON::PP::false,
+            fingerprint => $fingerprint || q{},
+        };
+    }
+
+    return @rows;
+}
+
+sub render_list_table {
+    my ( $self, $rows ) = @_;
+    my @headers = qw(KEY STATUS FILE FINGERPRINT);
+    my @data = map { [ $_->{key}, $_->{status}, $_->{file}, $_->{fingerprint} ] } @{ $rows || [] };
+    my @widths = map { length } @headers;
+    for my $row (@data) {
+        for my $i ( 0 .. $#headers ) {
+            my $len = length( defined $row->[$i] ? $row->[$i] : q{} );
+            $widths[$i] = $len if $len > $widths[$i];
+        }
+    }
+
+    my $line = sub {
+        my ($items) = @_;
+        return join( '  ', map { sprintf "%-*s", $widths[$_], defined $items->[$_] ? $items->[$_] : q{} } 0 .. $#headers ) . "\n";
+    };
+
+    my $out = $line->( \@headers );
+    $out .= $line->( [ map { '-' x $_ } @widths ] );
+    $out .= $line->($_) for @data;
+    return $out;
 }
 
 sub collector_check {
