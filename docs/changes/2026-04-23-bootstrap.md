@@ -13,3 +13,4 @@ Bootstrap the `ssh` skill with smart key registration, managed ssh-agent repair,
 - shell-readable agent env file
 - SSH config include for `IdentityAgent`
 - saved agent env reuse for sessions that start without `SSH_AUTH_SOCK`
+- managed ssh-agent files under `~/.ssh/ssh-agent` instead of the DD runtime root

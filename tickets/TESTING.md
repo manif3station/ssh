@@ -53,7 +53,9 @@ Observed result:
 - `status` was `ok`
 - `loaded` was `0`
 - `missing` was an empty list
-- the reported agent path used the managed DD socket under `~/.developer-dashboard/ssh-agent/agent.sock`
+- the reported agent path used the managed SSH socket under `~/.ssh/ssh-agent/agent.sock`
+- `~/.ssh/ssh-agent/agent.env` was created
+- no ssh-agent runtime file was created under `~/.developer-dashboard`
 
 ## Cleanup
 

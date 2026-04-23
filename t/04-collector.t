@@ -39,7 +39,7 @@ sub runner_for {
             my (@cmd) = @_;
             return ( "256 SHA256:key1 ~/.ssh/id_ed25519.pub (ED25519)\n", q{}, 0 ) if $cmd[0] eq 'ssh-keygen' && $cmd[2] =~ /id_ed25519/;
             return ( "256 SHA256:key2 ~/.ssh/id_rsa.pub (RSA)\n", q{}, 0 ) if $cmd[0] eq 'ssh-keygen' && $cmd[2] =~ /id_rsa/;
-            return ( "SSH_AUTH_SOCK=$home/.developer-dashboard/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 );
+            return ( "SSH_AUTH_SOCK=$home/.ssh/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 );
         },
     );
     return ( $runner, $home, \@system_calls, \$stderr );

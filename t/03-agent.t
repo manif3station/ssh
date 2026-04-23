@@ -31,12 +31,12 @@ my $runner = SSH::Add->new(
     capture_command => sub {
         my (@cmd) = @_;
         push @capture_commands, \@cmd;
-        return ( "SSH_AUTH_SOCK=$home/.developer-dashboard/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 );
+        return ( "SSH_AUTH_SOCK=$home/.ssh/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 );
     },
 );
 
 my $socket = $runner->ensure_agent;
-like( $socket, qr/\.developer-dashboard\/ssh-agent\/agent\.sock\z/, 'dead SSH_AUTH_SOCK starts managed agent at stable socket' );
+like( $socket, qr/\.ssh\/ssh-agent\/agent\.sock\z/, 'dead SSH_AUTH_SOCK starts managed agent at stable socket outside DD root' );
 is( $capture_commands[0][0], 'ssh-agent', 'ssh-agent is started' );
 is( $capture_commands[0][1], '-a', 'ssh-agent receives explicit socket flag' );
 is( $runner->{env}{SSH_AUTH_SOCK}, $socket, 'runner env is updated with managed socket' );

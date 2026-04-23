@@ -45,7 +45,7 @@ The skill checks the current `SSH_AUTH_SOCK` first. If that socket is alive, it 
 If `SSH_AUTH_SOCK` is missing, the skill reads:
 
 ```text
-~/.developer-dashboard/ssh-agent/agent.env
+~/.ssh/ssh-agent/agent.env
 ```
 
 and reuses that saved socket when it is still alive.
@@ -53,22 +53,24 @@ and reuses that saved socket when it is still alive.
 If no saved socket is usable, the skill tries the stable DD-managed socket:
 
 ```text
-~/.developer-dashboard/ssh-agent/agent.sock
+~/.ssh/ssh-agent/agent.sock
 ```
 
 If that is also missing or dead, the skill starts:
 
 ```bash
-ssh-agent -a ~/.developer-dashboard/ssh-agent/agent.sock -s
+ssh-agent -a ~/.ssh/ssh-agent/agent.sock -s
 ```
 
 The skill writes:
 
 ```text
-~/.developer-dashboard/ssh-agent/agent.env
+~/.ssh/ssh-agent/agent.env
 ```
 
 with the active `SSH_AUTH_SOCK`, and maintains an SSH config include so normal `ssh` commands can use the active shared socket even when a new shell did not inherit the environment variable.
+
+The managed socket and env file are intentionally kept outside `~/.developer-dashboard` so DD runtime folders remain clean for users who track them with git.
 
 ## Collector Behavior
 

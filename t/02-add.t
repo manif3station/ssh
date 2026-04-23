@@ -32,7 +32,7 @@ sub harness {
     my $capture_command = $args{capture_command} || sub {
         my (@cmd) = @_;
         push @capture_calls, [ {}, @cmd ];
-        return ( "SSH_AUTH_SOCK=$home/.developer-dashboard/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 )
+        return ( "SSH_AUTH_SOCK=$home/.ssh/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 )
           if $cmd[0] eq 'ssh-agent';
         return ( "256 SHA256:testfp key (ED25519)\n", q{}, 0 ) if $cmd[0] eq 'ssh-keygen';
         return ( q{}, q{}, 0 );
@@ -105,7 +105,7 @@ sub harness {
     my $env = $runner->agent_env_file;
     $runner->execute('id_rsa');
     like( _slurp($env), qr/^export SSH_AUTH_SOCK='/, 'agent env file is shell-readable' );
-    like( _slurp( $runner->managed_ssh_include_file ), qr/IdentityAgent \Q$home\E\/\.developer-dashboard\/ssh-agent\/agent\.sock/, 'ssh include points at stable managed socket' );
+    like( _slurp( $runner->managed_ssh_include_file ), qr/IdentityAgent \Q$home\E\/\.ssh\/ssh-agent\/agent\.sock/, 'ssh include points at stable managed socket outside DD root' );
 }
 
 sub _slurp {

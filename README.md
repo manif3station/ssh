@@ -21,16 +21,16 @@ Some systems also start shells without `SSH_AUTH_SOCK`, or leave new terminal se
 The managed socket lives at:
 
 ```text
-~/.developer-dashboard/ssh-agent/agent.sock
+~/.ssh/ssh-agent/agent.sock
 ```
 
 The skill also writes:
 
 ```text
-~/.developer-dashboard/ssh-agent/agent.env
+~/.ssh/ssh-agent/agent.env
 ```
 
-That file contains a shell-readable `SSH_AUTH_SOCK` export for shells or helper workflows that want to source the current managed agent socket.
+That file contains a shell-readable `SSH_AUTH_SOCK` export for shells or helper workflows that want to source the current managed agent socket. The skill deliberately keeps these files under `~/.ssh/ssh-agent` instead of `~/.developer-dashboard` so users who track their DD root with git do not pick up volatile SSH runtime files.
 
 To make ordinary `ssh` commands work even when a new terminal does not inherit `SSH_AUTH_SOCK`, the skill writes a managed include file:
 

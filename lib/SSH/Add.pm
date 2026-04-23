@@ -391,7 +391,7 @@ sub home_path {
 
 sub agent_dir {
     my ($self) = @_;
-    return File::Spec->catdir( $self->home, '.developer-dashboard', 'ssh-agent' );
+    return File::Spec->catdir( $self->home, '.ssh', 'ssh-agent' );
 }
 
 sub agent_socket {
