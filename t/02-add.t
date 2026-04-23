@@ -1,0 +1,118 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use File::Path qw(make_path);
+use File::Spec;
+use File::Temp qw(tempdir);
+use JSON::PP qw(decode_json);
+use Test::More;
+
+use lib 'lib';
+use SSH::Add;
+
+sub harness {
+    my (%args) = @_;
+    my $home = tempdir( CLEANUP => 1 );
+    my $root = tempdir( CLEANUP => 1 );
+    make_path( File::Spec->catdir( $home, '.ssh' ) );
+    my @system_calls;
+    my @capture_calls;
+    my $system = $args{system} || sub {
+        my ( $env, @cmd ) = @_;
+        push @system_calls, [ $env, @cmd ];
+        return 0;
+    };
+    my $capture = $args{capture} || sub {
+        my ( $env, @cmd ) = @_;
+        push @capture_calls, [ $env, @cmd ];
+        return ( q{}, q{}, 1 ) if $cmd[0] eq 'ssh-add' && $cmd[1] eq '-l';
+        return ( q{}, q{}, 0 );
+    };
+    my $capture_command = $args{capture_command} || sub {
+        my (@cmd) = @_;
+        push @capture_calls, [ {}, @cmd ];
+        return ( "SSH_AUTH_SOCK=$home/.developer-dashboard/ssh-agent/agent.sock; export SSH_AUTH_SOCK;\n", q{}, 0 )
+          if $cmd[0] eq 'ssh-agent';
+        return ( "256 SHA256:testfp key (ED25519)\n", q{}, 0 ) if $cmd[0] eq 'ssh-keygen';
+        return ( q{}, q{}, 0 );
+    };
+    my $runner = SSH::Add->new(
+        home            => $home,
+        skill_root      => $root,
+        env             => {},
+        no_global_env   => 1,
+        system          => $system,
+        capture         => $capture,
+        capture_command => $capture_command,
+        interactive     => $args{interactive} // 0,
+    );
+    return ( $runner, $home, $root, \@system_calls, \@capture_calls );
+}
+
+{
+    my ( $runner, $home, undef, $system_calls ) = harness();
+    my $result = $runner->execute('id_ed25519');
+    is( $result->{mode}, 'add', 'explicit key runs add mode' );
+    is_deeply( $result->{added}, ['~/.ssh/id_ed25519'], 'bare key normalizes to home-relative ssh path in result' );
+    is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'bare key is remembered as home-relative path' );
+    is( $system_calls->[-1][1], 'ssh-add', 'ssh-add command is called' );
+    is( $system_calls->[-1][2], File::Spec->catfile( $home, '.ssh', 'id_ed25519' ), 'ssh-add receives expanded filesystem path' );
+}
+
+{
+    my ( $runner ) = harness();
+    $runner->execute('id_ed25519');
+    $runner->execute('~/.ssh/id_ed25519');
+    is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'duplicate key is not written twice' );
+}
+
+{
+    my ( $runner, $home ) = harness();
+    my $rsa = File::Spec->catfile( $home, '.ssh', 'id_rsa' );
+    open my $fh, '>', $rsa or die $!;
+    close $fh;
+    my $result = $runner->execute();
+    is_deeply( $result->{added}, ['~/.ssh/id_rsa'], 'no argument prefers id_rsa when it exists' );
+}
+
+{
+    my ( $runner, $home ) = harness();
+    my $ed = File::Spec->catfile( $home, '.ssh', 'id_ed25519' );
+    open my $fh, '>', $ed or die $!;
+    close $fh;
+    my $result = $runner->execute();
+    is_deeply( $result->{added}, ['~/.ssh/id_ed25519'], 'no argument falls back to id_ed25519' );
+}
+
+{
+    my ( $runner ) = harness();
+    my $error = eval { $runner->execute(); 1 };
+    ok( !$error, 'missing default key dies' );
+    like( $@, qr/no default key exists/, 'missing default key error explains fallback list' );
+}
+
+{
+    my ( $runner, $home ) = harness();
+    $runner->execute('/tmp/work_key');
+    is( _slurp( $runner->keys_file ), "/tmp/work_key\n", 'absolute key path is stored as supplied' );
+    ok( -f File::Spec->catfile( $home, '.ssh', 'developer-dashboard-ssh-agent.conf' ), 'managed ssh config include file is written' );
+    like( _slurp( File::Spec->catfile( $home, '.ssh', 'config' ) ), qr/Include ~\/\.ssh\/developer-dashboard-ssh-agent\.conf/, 'user ssh config includes managed file' );
+}
+
+{
+    my ( $runner, $home ) = harness();
+    my $env = $runner->agent_env_file;
+    $runner->execute('id_rsa');
+    like( _slurp($env), qr/^export SSH_AUTH_SOCK='/, 'agent env file is shell-readable' );
+    like( _slurp( $runner->managed_ssh_include_file ), qr/IdentityAgent \Q$home\E\/\.developer-dashboard\/ssh-agent\/agent\.sock/, 'ssh include points at stable managed socket' );
+}
+
+sub _slurp {
+    my ($file) = @_;
+    open my $fh, '<', $file or die "Unable to read $file: $!";
+    local $/;
+    return <$fh>;
+}
+
+done_testing;

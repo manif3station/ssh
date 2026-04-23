@@ -1,0 +1,4 @@
+Revision history for ssh
+
+0.01 2026-04-23
+ - bootstrap the ssh skill with smart key registration, managed ssh-agent socket repair, and collector-ready key checks

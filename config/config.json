@@ -1,0 +1,13 @@
+{
+  "collectors": [
+    {
+      "name": "door-opener",
+      "command": "dashboard ssh.add --collector",
+      "cwd": "home",
+      "interval": 10,
+      "indicator": {
+        "icon": "🚪"
+      }
+    }
+  ]
+}
