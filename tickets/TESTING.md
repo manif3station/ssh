@@ -129,6 +129,13 @@ Files=7, Tests=141
 lib/SSH/Add.pm    100.0   88.8   67.4  100.0
 ```
 
+Latest covered result for `DD-042`:
+
+```text
+Files=8, Tests=149
+lib/SSH/Add.pm    100.0   89.7   67.3  100.0
+```
+
 ## Cleanup
 
 - `cover_db` must be removed from the skill folder before release

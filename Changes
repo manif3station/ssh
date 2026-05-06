@@ -1,5 +1,9 @@
 Revision history for ssh
 
+0.09 2026-05-06
+ - add an explicit MIT license to the `ssh` skill
+ - document the MIT license in the README
+
 0.08 2026-04-24
  - make `ssh.add --collector` use a GUI askpass-backed `ssh-add` path when a desktop session and askpass backend are available
  - make non-interactive collector runs return nonzero when remembered keys are still missing so DD can show an alert indicator state instead of hanging

@@ -76,6 +76,12 @@ Install through Developer Dashboard:
 dashboard skills install git@github.mf:manif3station/ssh.git
 ```
 
+## License
+
+`ssh` is released under the MIT License.
+
+See [LICENSE](LICENSE).
+
 ## CLI Usage
 
 Register and add an explicit key:
