@@ -59,7 +59,7 @@ sub harness {
     is( _slurp( $runner->keys_file ), "~/.ssh/id_ed25519\n", 'bare key is remembered as home-relative path' );
     is( $system_calls->[-1][1], 'ssh-add', 'ssh-add command is called' );
     is( $system_calls->[-1][2], File::Spec->catfile( $home, '.ssh', 'id_ed25519' ), 'ssh-add receives expanded filesystem path' );
-    is( $result->{registry}, File::Spec->catfile( $root, 'config', 'ssh', 'keys.txt' ), 'result exposes installed skill registry path' );
+    is( $result->{registry}, File::Spec->catfile( $home, '.ssh', 'keys.txt' ), 'result exposes home ssh registry path' );
     is( $result->{shell_source}, 'source ~/.ssh/ssh-agent/agent.env', 'result exposes source command for current shell' );
     is_deeply( $result->{already_loaded}, [], 'fresh add reports no already-loaded keys' );
 }
@@ -146,6 +146,20 @@ sub harness {
     like( _slurp($env), qr/^export SSH_AUTH_SOCK='/, 'agent env file is shell-readable' );
     like( _slurp( $runner->managed_ssh_include_file ), qr/IdentityAgent \Q$home\E\/\.ssh\/ssh-agent\/agent\.sock/, 'ssh include points at stable managed socket outside DD root' );
     like( _slurp( File::Spec->catfile( $home, '.bashrc' ) ), qr/\.ssh\/ssh-agent\/agent\.env/, 'bash startup sources managed agent env' );
+}
+
+{
+    my ( $runner, $home, $root ) = harness();
+    my $legacy = File::Spec->catfile( $root, 'config', 'ssh', 'keys.txt' );
+    make_path( File::Spec->catdir( $root, 'config', 'ssh' ) );
+    open my $fh, '>', $legacy or die $!;
+    print {$fh} "~/.ssh/legacy\n";
+    close $fh;
+
+    my $result = $runner->execute_list('-o', 'json');
+    is( $result->{registry}, File::Spec->catfile( $home, '.ssh', 'keys.txt' ), 'list mode reports migrated home ssh registry path' );
+    is( _slurp( $runner->keys_file ), "~/.ssh/legacy\n", 'legacy skill-local registry is migrated into ~/.ssh/keys.txt' );
+    ok( !-f $legacy, 'legacy skill-local registry file is removed after migration' );
 }
 
 sub _slurp {

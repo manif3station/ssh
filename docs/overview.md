@@ -2,15 +2,15 @@
 
 `ssh` is a Developer Dashboard skill that keeps remembered SSH keys ready before the user starts an SSH connection.
 
-It records key paths in `config/ssh/keys.txt`, ensures there is a usable ssh-agent, shares a managed agent socket across shell sessions, and lets a DD collector prompt early when configured keys are missing from the agent.
+It records key paths in `~/.ssh/keys.txt`, ensures there is a usable ssh-agent, shares a managed agent socket across shell sessions, and lets a DD collector prompt early when configured keys are missing from the agent.
 
 The skill is intentionally proactive. It moves passphrase prompts to the beginning of the workflow, either when the user explicitly runs `dashboard ssh.add` or when the `door-opener` collector sees that remembered keys are absent from the agent.
 
-The skill also includes `dashboard ssh.list` and the alias `dashboard ssh.ls` so users can inspect the registry without opening `config/ssh/keys.txt`. List mode reports each managed key, its expanded filesystem path, whether it is loaded in `ssh-add -l`, and its fingerprint when available.
+The skill also includes `dashboard ssh.list` and the alias `dashboard ssh.ls` so users can inspect the registry without opening `~/.ssh/keys.txt`. List mode reports each managed key, its expanded filesystem path, whether it is loaded in `ssh-add -l`, and its fingerprint when available.
 
 ## Runtime Design
 
-- remembered keys live in `config/ssh/keys.txt`
+- remembered keys live in `~/.ssh/keys.txt`
 - `dashboard ssh.list` reads that registry and reports `loaded`, `not-loaded`, or `missing-file`
 - the managed socket is `~/.ssh/ssh-agent/agent.sock`
 - the shell-readable env file is `~/.ssh/ssh-agent/agent.env`
@@ -32,6 +32,8 @@ The collector now has three explicit prompt modes when remembered keys are missi
 
 The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
 
-Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `config/ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.
+Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `~/.ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.
+
+If an older installed skill still has a remembered-key file at `config/ssh/keys.txt`, the next command run moves that legacy file into `~/.ssh/keys.txt` before add, list, or collector logic continues.
 
 The socket and env file stay under `~/.ssh/ssh-agent`, not under `~/.developer-dashboard`, because some users track their DD runtime root with git and should not see volatile SSH agent files in that tree.

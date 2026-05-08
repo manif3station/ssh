@@ -417,8 +417,9 @@ sub default_key {
 
 sub ensure_skill_layout {
     my ($self) = @_;
-    make_path( $self->config_ssh_dir );
+    make_path( $self->home_path('.ssh') );
     make_path( $self->state_dir );
+    $self->migrate_legacy_keys_file;
     return 1;
 }
 
@@ -647,7 +648,25 @@ sub result_exit_code {
 
 sub keys_file {
     my ($self) = @_;
+    return $self->home_path( '.ssh', 'keys.txt' );
+}
+
+sub legacy_keys_file {
+    my ($self) = @_;
     return File::Spec->catfile( $self->config_ssh_dir, 'keys.txt' );
+}
+
+sub migrate_legacy_keys_file {
+    my ($self) = @_;
+    my $current = $self->keys_file;
+    return 1 if -f $current;
+
+    my $legacy = $self->legacy_keys_file;
+    return 1 if !-f $legacy;
+
+    make_path( dirname($current) );
+    rename $legacy, $current or die "Unable to move $legacy to $current: $!";
+    return 1;
 }
 
 sub config_ssh_dir {

@@ -1,5 +1,10 @@
 Revision history for ssh
 
+0.10 2026-05-08
+ - move the remembered ssh key registry from the skill folder to `~/.ssh/keys.txt`
+ - migrate a legacy `config/ssh/keys.txt` registry into `~/.ssh/keys.txt` on the next command run
+ - document the home-scoped registry path and migration behavior
+
 0.09 2026-05-06
  - add an explicit MIT license to the `ssh` skill
  - document the MIT license in the README

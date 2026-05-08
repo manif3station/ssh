@@ -90,12 +90,12 @@ Register and add an explicit key:
 dashboard ssh.add id_ed25519
 ```
 
-This stores `~/.ssh/id_ed25519` in `config/ssh/keys.txt` and immediately runs `ssh-add` for that key.
+This stores `~/.ssh/id_ed25519` in `~/.ssh/keys.txt` and immediately runs `ssh-add` for that key.
 
 Successful output includes the exact installed registry and shell env paths:
 
 ```json
-{"mode":"add","added":["~/.ssh/id_ed25519"],"registry":".../skills/ssh/config/ssh/keys.txt","shell_env":"~/.ssh/ssh-agent/agent.env","shell_source":"source ~/.ssh/ssh-agent/agent.env"}
+{"mode":"add","added":["~/.ssh/id_ed25519"],"registry":"~/.ssh/keys.txt","shell_env":"~/.ssh/ssh-agent/agent.env","shell_source":"source ~/.ssh/ssh-agent/agent.env"}
 ```
 
 The `agent` field reports the active socket actually used for `ssh-add`. This matters on systems where the live agent socket can differ from the default managed socket path.
@@ -155,7 +155,7 @@ dashboard ssh.ls
 
 The table includes:
 
-- `KEY`: the registry entry from `config/ssh/keys.txt`
+- `KEY`: the registry entry from `~/.ssh/keys.txt`
 - `STATUS`: `loaded`, `not-loaded`, or `missing-file`
 - `FILE`: the expanded filesystem path used by the program
 - `FINGERPRINT`: the key fingerprint when the public key or private key can be read
@@ -177,7 +177,7 @@ dashboard ssh.list -o table
 Remembered keys are stored in:
 
 ```text
-config/ssh/keys.txt
+~/.ssh/keys.txt
 ```
 
 Examples:
@@ -194,6 +194,7 @@ Rules:
 - `~/...` paths stay home-relative in the registry
 - absolute paths stay absolute
 - duplicate key entries are not written twice
+- if an older installed skill still has `config/ssh/keys.txt`, the next run migrates it into `~/.ssh/keys.txt`
 
 ## Practical Examples
 

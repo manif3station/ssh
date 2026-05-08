@@ -14,7 +14,7 @@ Deliver a Developer Dashboard skill that prepares remembered SSH keys before the
 - `dashboard ssh.list` CLI command
 - `dashboard ssh.ls` CLI alias
 - skill collector named `door-opener`
-- key registry at `config/ssh/keys.txt`
+- key registry at `~/.ssh/keys.txt`
 - managed ssh-agent socket repair
 - shell startup bridge for `~/.ssh/ssh-agent/agent.env`
 - clear missing-key validation before registry writes

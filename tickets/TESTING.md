@@ -65,7 +65,7 @@ Observed result:
 - the reported agent path used the managed SSH socket under `~/.ssh/ssh-agent/agent.sock`
 - `~/.ssh/ssh-agent/agent.env` was created
 - no ssh-agent runtime file was created under `~/.developer-dashboard`
-- missing explicit keys returned a clear `SSH key not found` message and did not create `config/ssh/keys.txt`
+- missing explicit keys returned a clear `SSH key not found` message and did not create or keep a bad entry in `~/.ssh/keys.txt`
 - missing explicit keys did not include a Perl file/line suffix
 - successful explicit keys returned `registry`, `shell_env`, and `shell_source`
 - the managed shell profile bridge was written for future shells
@@ -111,11 +111,13 @@ Observed behavior:
 - `dashboard ssh.add id_rsa` returned a clear missing-key error because `~/.ssh/id_rsa` was absent
 - the stale `~/.ssh/id_rsa` registry entry was removed
 - the valid `~/.ssh/id_ed25519` registry entry remained
+- the installed skill now reports `registry: ~/.ssh/keys.txt`
 - `dashboard ssh.list -o json` decoded successfully through the installed skill
 - `dashboard ssh.ls -o json` decoded successfully through the installed skill alias
 - the installed skill version is `0.06`
 - the installed skill version is `0.07`
 - the installed skill version is `0.08`
+- the installed skill version is `0.10`
 
 Installed DD proof for `DD-041` verified the same two collector cases through the installed `dashboard` command:
 
@@ -135,6 +137,20 @@ Latest covered result for `DD-042`:
 Files=8, Tests=149
 lib/SSH/Add.pm    100.0   89.7   67.3  100.0
 ```
+
+Latest covered result for `DD-043`:
+
+```text
+Files=8, Tests=152
+lib/SSH/Add.pm    100.0   88.7   67.4  100.0
+```
+
+Latest DD source proof for `DD-043` verified:
+
+- `dashboard ssh.add id_ed25519` reported `registry: ~/.ssh/keys.txt`
+- `dashboard ssh.list -o json` read the same `~/.ssh/keys.txt` registry
+- a legacy `config/ssh/keys.txt` file was migrated into `~/.ssh/keys.txt`
+- the migrated legacy file no longer remained inside the skill folder
 
 ## Cleanup
 

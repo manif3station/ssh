@@ -11,7 +11,7 @@ dashboard ssh.add id_ed25519
 If the key exists, the command registers `~/.ssh/id_ed25519`, starts or reuses a usable agent, and runs `ssh-add` immediately. The JSON result includes:
 
 - `agent`: the active socket actually used for `ssh-add`
-- `registry`: the installed skill registry path, normally `~/.developer-dashboard/skills/ssh/config/ssh/keys.txt`
+- `registry`: the remembered-key registry path, normally `~/.ssh/keys.txt`
 - `shell_env`: the env file at `~/.ssh/ssh-agent/agent.env`
 - `shell_source`: the command to update the current shell, `source ~/.ssh/ssh-agent/agent.env`
 
@@ -63,7 +63,7 @@ dashboard ssh.ls
 
 The default table output has these columns:
 
-- `KEY`: the path as stored in `config/ssh/keys.txt`
+- `KEY`: the path as stored in `~/.ssh/keys.txt`
 - `STATUS`: `loaded`, `not-loaded`, or `missing-file`
 - `FILE`: the expanded filesystem path
 - `FINGERPRINT`: the fingerprint when available
@@ -85,7 +85,7 @@ dashboard ssh.list -o table
 The key registry is:
 
 ```text
-config/ssh/keys.txt
+~/.ssh/keys.txt
 ```
 
 Bare key names are stored as home-relative paths such as:
@@ -96,7 +96,7 @@ Bare key names are stored as home-relative paths such as:
 
 Duplicate paths are not written twice.
 
-`ssh.list` and `ssh.ls` read this registry directly. If the file is absent, list mode returns no keys instead of failing.
+`ssh.list` and `ssh.ls` read this registry directly. If the file is absent, list mode returns no keys instead of failing. If a legacy installed skill left the registry at `config/ssh/keys.txt`, the next command run migrates it into `~/.ssh/keys.txt`.
 
 ## Agent Behavior
 
