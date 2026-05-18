@@ -28,7 +28,9 @@ cover -report text
 - Docker covered suite passed
 - `lib/SSH/Add.pm` reached `100.0%` statement coverage
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, already-loaded add skipping, and CLI `main` success/error paths
+- `lib/SSH/Bridge.pm` reached `100.0%` statement coverage
+- `lib/SSH/Bridge.pm` reached `100.0%` subroutine coverage
+- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, already-loaded add skipping, bridge-host SSH option injection for `*.b`, optional bridge `RemoteForward <port> localhost:22` injection, bridge reconnect looping, bridge passphrase env fallback order, wayland-aware askpass env handling, default helper paths, and CLI `main` success/error paths
 
 Latest covered result for `DD-040`:
 
@@ -118,6 +120,7 @@ Observed behavior:
 - the installed skill version is `0.07`
 - the installed skill version is `0.08`
 - the installed skill version is `0.10`
+- the installed skill version is `0.11`
 
 Installed DD proof for `DD-041` verified the same two collector cases through the installed `dashboard` command:
 
@@ -151,6 +154,22 @@ Latest DD source proof for `DD-043` verified:
 - `dashboard ssh.list -o json` read the same `~/.ssh/keys.txt` registry
 - a legacy `config/ssh/keys.txt` file was migrated into `~/.ssh/keys.txt`
 - the migrated legacy file no longer remained inside the skill folder
+
+Latest covered result for `DD-081`:
+
+```text
+Files=9, Tests=208
+lib/SSH/Add.pm     100.0   90.2   74.4  100.0
+lib/SSH/Bridge.pm  100.0   88.1   68.2  100.0
+```
+
+Docker proof for `DD-081` verified:
+
+- `dashboard ssh.bridge` is shipped by the skill through `cli/bridge` and exercised through `lib/SSH/Bridge.pm`
+- bridge hosts ending in `.b` add optional `RemoteForward <port> localhost:22`, `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` on the SSH command line
+- bridge mode reuses the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity
+- explicit wayland bridge environments do not force a host `DISPLAY` fallback into askpass mode
+- reconnect mode reruns the SSH command after the configured delay in the governed test harness
 
 ## Cleanup
 

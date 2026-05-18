@@ -65,6 +65,7 @@ This skill adds:
 - `dashboard ssh.add`
 - `dashboard ssh.list`
 - `dashboard ssh.ls`
+- `dashboard ssh.bridge`
 - a skill collector named `ssh.door-opener`
 - prompt and indicator integration through the configured collector icon `🚪`
 
@@ -172,6 +173,46 @@ Table output can also be requested explicitly:
 dashboard ssh.list -o table
 ```
 
+Bridge to a remote SSH server:
+
+```bash
+dashboard ssh.bridge mac.b
+```
+
+`dashboard ssh.bridge` reuses the skill-managed ssh-agent flow, ensures `~/.ssh/id_ed25519` is loaded, and then runs `ssh -v` for the requested server.
+
+When the target host ends in `.b`, the command also adds these SSH options directly on the command line:
+
+- `RemoteForward <port> localhost:22` when a remote-forward port argument is supplied
+- `ExitOnForwardFailure=yes`
+- `ServerAliveInterval=60`
+- `SessionType=none`
+- `RequestTTY=no`
+
+Example with a forwarded port:
+
+```bash
+dashboard ssh.bridge mac.b 1223
+```
+
+That adds `RemoteForward 1223 localhost:22` before the other bridge-only SSH options.
+
+Optional reconnect mode is also supported:
+
+```bash
+dashboard ssh.bridge mac.b 1223 5
+```
+
+That reconnects every `5` seconds after the previous bridge attempt exits while keeping the forwarded port at `1223`.
+
+Passphrase lookup order for bridge mode is:
+
+- `BRIDGE_SSH_KEY_PASSPHRASE`
+- `SSH_KEY_PASSPHRASE`
+- `MACB_PASSPHRASE` for `mac...` hosts
+- `GPDB_PASSPHRASE` for `gpd...` hosts
+- `PASS` for legacy `jump`, `mac.b`, and `gpd.b` flows
+
 ## Key Registry
 
 Remembered keys are stored in:
@@ -242,6 +283,24 @@ Inspect managed keys as JSON:
 dashboard ssh.ls -o json
 ```
 
+Bridge to a `.b` host with the injected non-interactive session options:
+
+```bash
+dashboard ssh.bridge mac.b
+```
+
+Bridge to a `.b` host and expose a remote return path on port `1223`:
+
+```bash
+dashboard ssh.bridge mac.b 1223
+```
+
+Reconnect to a bridge host every `10` seconds while keeping that forwarded port:
+
+```bash
+dashboard ssh.bridge mac.b 1223 10
+```
+
 Inspect skill metadata:
 
 ```bash
@@ -258,6 +317,9 @@ dashboard skills uninstall ssh
 
 - duplicate keys are not written twice
 - `ssh.add` skips passphrase prompts for keys that are already loaded in the active agent
+- `ssh.bridge` only injects the extra SSH options for hosts ending in `.b`
+- `ssh.bridge` only injects `RemoteForward <port> localhost:22` when a bridge host receives a remote-forward port argument
+- `ssh.bridge` fails early when no bridge passphrase environment variable is available and `~/.ssh/id_ed25519` is not already loaded
 - explicit missing keys are rejected before registration or `ssh-add`
 - stale remembered entries for explicitly missing keys are removed during that rejection
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent

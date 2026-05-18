@@ -236,7 +236,7 @@ sub missing_keys {
 sub ensure_agent {
     my ($self) = @_;
     my $socket = $self->agent_socket;
-    my $current = $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || $self->read_agent_env || q{};
+    my $current = $self->env_value('SSH_AUTH_SOCK') || $self->read_agent_env || q{};
 
     if ( $current ne q{} && $self->ssh_add_list_rc($current) != 2 ) {
         $self->set_auth_sock($current);
@@ -259,8 +259,8 @@ sub ensure_agent {
 
 sub ssh_add_list_rc {
     my ( $self, $socket ) = @_;
-    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $socket );
-    my ( undef, undef, $exit ) = $self->capture_with_env( \%env, 'ssh-add', '-l' );
+    my $env = $self->runtime_env( SSH_AUTH_SOCK => $socket );
+    my ( undef, undef, $exit ) = $self->capture_with_env( $env, 'ssh-add', '-l' );
     return $exit;
 }
 
@@ -276,8 +276,8 @@ sub start_agent {
 
 sub run_ssh_add {
     my ( $self, $key ) = @_;
-    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->active_agent_socket );
-    my $exit = $self->system_with_env( \%env, 'ssh-add', $self->expand_key_path($key) );
+    my $env = $self->runtime_env( SSH_AUTH_SOCK => $self->active_agent_socket );
+    my $exit = $self->system_with_env( $env, 'ssh-add', $self->expand_key_path($key) );
     die "ssh-add failed for $key\n" if $exit != 0;
     return 1;
 }
@@ -285,24 +285,27 @@ sub run_ssh_add {
 sub run_ssh_add_askpass {
     my ( $self, $key ) = @_;
     my $askpass = $self->write_askpass_helper;
-    my %env = (
-        %{ $self->{env} || \%ENV },
+    my $env = $self->runtime_env(
         SSH_AUTH_SOCK                       => $self->active_agent_socket,
         SSH_ASKPASS                         => $askpass,
         SSH_ASKPASS_REQUIRE                 => 'force',
         DEVELOPER_DASHBOARD_SSH_ASKPASS_KEY => $key,
         DEVELOPER_DASHBOARD_SSH_ASKPASS_MESSAGE => $self->collector_prompt_message($key),
     );
-    $env{DISPLAY} = ':0' if !$env{DISPLAY} && !$env{WAYLAND_DISPLAY};
-    my $exit = $self->system_with_env_no_tty( \%env, 'ssh-add', $self->expand_key_path($key) );
+    delete $env->{DISPLAY}
+      if $self->{env}
+      && exists $self->{env}{WAYLAND_DISPLAY}
+      && !exists $self->{env}{DISPLAY};
+    $env->{DISPLAY} = ':0' if !$env->{DISPLAY} && !$env->{WAYLAND_DISPLAY};
+    my $exit = $self->system_with_env_no_tty( $env, 'ssh-add', $self->expand_key_path($key) );
     die "ssh-add failed for $key\n" if $exit != 0;
     return 1;
 }
 
 sub loaded_key_fingerprints {
     my ($self) = @_;
-    my %env = ( %{ $self->{env} || \%ENV }, SSH_AUTH_SOCK => $self->active_agent_socket );
-    my ( $stdout, undef, $exit ) = $self->capture_with_env( \%env, 'ssh-add', '-l' );
+    my $env = $self->runtime_env( SSH_AUTH_SOCK => $self->active_agent_socket );
+    my ( $stdout, undef, $exit ) = $self->capture_with_env( $env, 'ssh-add', '-l' );
     return () if $exit != 0;
     my @fingerprints;
     for my $line ( split /\n/, $stdout ) {
@@ -480,7 +483,7 @@ sub can_gui_prompt {
     my ($self) = @_;
     return $self->{can_gui_prompt} if exists $self->{can_gui_prompt};
     return 1 if $^O eq 'darwin' && $self->command_available('osascript');
-    return 0 if !( $self->{env}{DISPLAY} || $ENV{DISPLAY} || $self->{env}{WAYLAND_DISPLAY} || $ENV{WAYLAND_DISPLAY} );
+    return 0 if !( $self->env_value('DISPLAY') || $self->env_value('WAYLAND_DISPLAY') );
     return 1 if $self->command_available('zenity');
     return 1 if $self->command_available('kdialog');
     return 1 if $self->command_available('ssh-askpass');
@@ -537,7 +540,7 @@ SH
 sub shell_profile_file {
     my ($self) = @_;
     return $self->{shell_profile_file} if exists $self->{shell_profile_file};
-    my $shell = $self->{env}{SHELL} || $ENV{SHELL} || q{};
+    my $shell = $self->env_value('SHELL') || q{};
     return $self->home_path('.zshrc') if $shell =~ m{/zsh\z};
     return $self->home_path('.bashrc') if $shell =~ m{/bash\z};
     return $self->home_path('.profile');
@@ -585,7 +588,7 @@ sub read_agent_env {
 
 sub active_agent_socket {
     my ($self) = @_;
-    return $self->{env}{SSH_AUTH_SOCK} || $ENV{SSH_AUTH_SOCK} || $self->agent_socket;
+    return $self->env_value('SSH_AUTH_SOCK') || $self->agent_socket;
 }
 
 sub set_auth_sock {
@@ -618,6 +621,20 @@ sub capture_with_env {
     return $self->{capture}->( $env, @cmd ) if $self->{capture};
     local %ENV = %{$env};
     return $self->capture_command(@cmd);
+}
+
+sub runtime_env {
+    my ( $self, %extra ) = @_;
+    my %env = $self->{no_global_env} ? %{ $self->{env} || {} } : ( %ENV, %{ $self->{env} || {} } );
+    @env{ keys %extra } = values %extra;
+    return \%env;
+}
+
+sub env_value {
+    my ( $self, $name ) = @_;
+    return $self->{env}{$name} if $self->{env} && exists $self->{env}{$name};
+    return if $self->{no_global_env};
+    return $ENV{$name};
 }
 
 sub capture_command {

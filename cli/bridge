@@ -1,0 +1,9 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use SSH::Bridge;
+
+exit SSH::Bridge->main(@ARGV);

@@ -1,5 +1,10 @@
 Revision history for ssh
 
+0.11 2026-05-18
+ - add `dashboard ssh.bridge` as a governed skill command with tests and documentation
+ - reuse the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity for bridge connections
+ - add bridge-only SSH command-line options for `*.b` hosts: `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no`
+
 0.10 2026-05-08
  - move the remembered ssh key registry from the skill folder to `~/.ssh/keys.txt`
  - migrate a legacy `config/ssh/keys.txt` registry into `~/.ssh/keys.txt` on the next command run
