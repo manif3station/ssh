@@ -1,16 +1,19 @@
 Revision history for ssh
 
+0.14 2026-05-18
+ - make `dashboard ssh.bridge` add its SSH bridge options for any server name instead of requiring a special hostname suffix
+
 0.13 2026-05-18
  - make `dashboard ssh.bridge` fall back to interactive `ssh-add` when `~/.ssh/id_ed25519` is not loaded and no bridge passphrase environment variable is set
  - make `dashboard ssh.bridge <server> <port>` always treat the second argument as the remote forwarded port instead of requiring a `.b` host naming pattern
+
+0.12 2026-05-18
+ - make `dashboard ssh.bridge` executable in the shipped skill so DD can dispatch the command
 
 0.11 2026-05-18
  - add `dashboard ssh.bridge` as a governed skill command with tests and documentation
  - reuse the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity for bridge connections
  - add bridge SSH command-line options: `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no`
-
-0.12 2026-05-18
- - make `dashboard ssh.bridge` executable in the shipped skill so DD can dispatch the command
 
 0.10 2026-05-08
  - move the remembered ssh key registry from the skill folder to `~/.ssh/keys.txt`

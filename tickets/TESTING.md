@@ -123,6 +123,7 @@ Observed behavior:
 - the installed skill version is `0.11`
 - the installed skill version is `0.12`
 - the installed skill version is `0.13`
+- the installed skill version is `0.14`
 
 Installed DD proof for `DD-041` verified the same two collector cases through the installed `dashboard` command:
 
@@ -170,6 +171,7 @@ Docker proof for `DD-081` verified:
 - `dashboard ssh.bridge` is shipped by the skill through `cli/bridge` and exercised through `lib/SSH/Bridge.pm`
 - `dashboard ssh.bridge` itself adds `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` on every bridge run
 - `dashboard ssh.bridge <server> <port>` adds `RemoteForward <port> localhost:22` on the SSH command line without depending on a `.b` hostname suffix
+- the current released bridge contract no longer uses hostname suffixes to decide whether bridge options apply
 - bridge mode reuses the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity
 - interactive bridge runs fall back to direct `ssh-add ~/.ssh/id_ed25519` prompting when no bridge passphrase environment variable is available
 - explicit wayland bridge environments do not force a host `DISPLAY` fallback into askpass mode
