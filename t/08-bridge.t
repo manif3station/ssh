@@ -55,7 +55,7 @@ use SSH::Bridge;
 {
     my $bridge = SSH::Bridge->new;
     is_deeply(
-        [ $bridge->ssh_command_for( 'mac.b', 1223 ) ],
+        [ $bridge->ssh_command_for( 'mac', 1223 ) ],
         [
             'ssh',
             '-o', 'RemoteForward 1223 localhost:22',
@@ -63,32 +63,34 @@ use SSH::Bridge;
             '-o', 'ServerAliveInterval=60',
             '-o', 'SessionType=none',
             '-o', 'RequestTTY=no',
-            '-v', 'mac.b'
+            '-v', 'mac'
         ],
-        'bridge hosts ending in .b get the bridge ssh options and remote forward'
+        'ssh.bridge always adds the bridge ssh options and remote forward'
     );
     is_deeply(
         [ $bridge->ssh_command_for('ops.example') ],
-        [ 'ssh', '-v', 'ops.example' ],
-        'non-bridge hosts keep the plain ssh command shape'
+        [
+            'ssh',
+            '-o', 'ExitOnForwardFailure=yes',
+            '-o', 'ServerAliveInterval=60',
+            '-o', 'SessionType=none',
+            '-o', 'RequestTTY=no',
+            '-v', 'ops.example'
+        ],
+        'ssh.bridge always adds the bridge ssh options even without a remote port'
     );
-    ok( $bridge->is_bridge_host('user@mac.b'), 'user@host.b is treated as a bridge host' );
-    ok( !$bridge->is_bridge_host('mac'), 'plain host name is not treated as a bridge host' );
 }
 
 {
     my $bridge = SSH::Bridge->new;
-    is_deeply( [ $bridge->parse_args('mac.b') ], [ 'mac.b', undef, undef ], 'parse_args accepts server only' );
-    is_deeply( [ $bridge->parse_args( 'mac.b', '1223' ) ], [ 'mac.b', '1223', undef ], 'parse_args accepts a remote forward port for bridge hosts' );
-    is_deeply( [ $bridge->parse_args( 'ops.example', '5' ) ], [ 'ops.example', undef, '5' ], 'parse_args keeps reconnect-only mode for non-bridge hosts' );
-    is_deeply( [ $bridge->parse_args( 'mac.b', '1223', '5' ) ], [ 'mac.b', '1223', '5' ], 'parse_args accepts remote port plus reconnect seconds' );
+    is_deeply( [ $bridge->parse_args('mac') ], [ 'mac', undef, undef ], 'parse_args accepts server only' );
+    is_deeply( [ $bridge->parse_args( 'mac', '1223' ) ], [ 'mac', '1223', undef ], 'parse_args treats the second arg as the remote forward port' );
+    is_deeply( [ $bridge->parse_args( 'ops.example', '1223', '5' ) ], [ 'ops.example', '1223', '5' ], 'parse_args accepts remote port plus reconnect seconds for any host name' );
     like( eval { $bridge->parse_args(); 1 } ? q{} : $@, qr/Usage:/, 'missing args are rejected with usage' );
-    like( eval { $bridge->parse_args( 'ops.example', '1223', '5' ); 1 } ? q{} : $@, qr/supported only for hosts ending in \.b/, 'remote forward port is rejected for non-bridge hosts' );
-    like( eval { $bridge->parse_args( 'mac.b', '70000' ); 1 } ? q{} : $@, qr/1 to 65535/, 'remote forward port range is validated' );
-    like( eval { $bridge->parse_args( 'mac.b', 'soon' ); 1 } ? q{} : $@, qr/1 to 65535/, 'bad remote forward port is rejected for bridge hosts' );
-    like( eval { $bridge->parse_args( 'ops.example', 'soon' ); 1 } ? q{} : $@, qr/non-negative integer/, 'bad reconnect value is rejected for non-bridge hosts' );
-    like( eval { $bridge->parse_args( 'mac.b', '1223', 'soon' ); 1 } ? q{} : $@, qr/non-negative integer/, 'bad reconnect value is rejected after a remote port' );
-    like( eval { $bridge->parse_args( 'mac.b', '1', '2', 'extra' ); 1 } ? q{} : $@, qr/Usage:/, 'too many args are rejected' );
+    like( eval { $bridge->parse_args( 'mac', '70000' ); 1 } ? q{} : $@, qr/1 to 65535/, 'remote forward port range is validated' );
+    like( eval { $bridge->parse_args( 'mac', 'soon' ); 1 } ? q{} : $@, qr/1 to 65535/, 'bad remote forward port is rejected' );
+    like( eval { $bridge->parse_args( 'mac', '1223', 'soon' ); 1 } ? q{} : $@, qr/non-negative integer/, 'bad reconnect value is rejected after a remote port' );
+    like( eval { $bridge->parse_args( 'mac', '1', '2', 'extra' ); 1 } ? q{} : $@, qr/Usage:/, 'too many args are rejected' );
 }
 
 {
@@ -172,9 +174,9 @@ use SSH::Bridge;
         },
     );
 
-    is( $bridge->execute( 'user@mac.b', '1223' ), 0, 'execute succeeds for a bridge host' );
+    is( $bridge->execute( 'user@mac', '1223' ), 0, 'execute succeeds for a named server' );
     is( $cleared, 1, 'bridge clears the screen before connecting' );
-    like( $stdout, qr/Connecting to user\@mac\.b/, 'bridge reports the target server' );
+    like( $stdout, qr/Connecting to user\@mac/, 'bridge reports the target server' );
     is( scalar @system_calls, 1, 'loaded identity skips ssh-add passphrase injection' );
     is_deeply(
         [ @{ $system_calls[0] }[ 1 .. $#{ $system_calls[0] } ] ],
@@ -185,9 +187,9 @@ use SSH::Bridge;
             '-o', 'ServerAliveInterval=60',
             '-o', 'SessionType=none',
             '-o', 'RequestTTY=no',
-            '-v', 'user@mac.b'
+            '-v', 'user@mac'
         ],
-        'bridge host ssh command includes the requested options'
+        'ssh.bridge command includes the requested options for a named server'
     );
     is( $system_calls[0][0]{SSH_AUTH_SOCK}, '/tmp/active.sock', 'ssh connect call uses the active agent socket' );
     like( $add->{last_key_fingerprint_arg}, qr/id_ed25519\z/, 'bridge checks the default bridge identity file' );
@@ -213,7 +215,7 @@ use SSH::Bridge;
         },
     );
 
-    is( $bridge->execute( 'mac.b', '1223' ), 0, 'bridge can load the identity before connecting' );
+    is( $bridge->execute( 'mac', '1223' ), 0, 'bridge can load the identity before connecting' );
     is( $system_calls[0][1], 'setsid', 'bridge uses setsid for askpass-based ssh-add' );
     is( $system_calls[0][3], 'ssh-add', 'bridge invokes ssh-add when the key is not loaded' );
     is( $system_calls[0][0]{SSH_ASKPASS_REQUIRE}, 'force', 'askpass mode is forced for passphrase injection' );
@@ -243,7 +245,7 @@ use SSH::Bridge;
         },
     );
 
-    ok( $bridge->ensure_identity_loaded( 'mac.b', $add ), 'bridge accepts wayland-only passphrase injection' );
+    ok( $bridge->ensure_identity_loaded( 'mac', $add ), 'bridge accepts wayland-only passphrase injection' );
     ok( !exists $system_calls[0][0]{DISPLAY}, 'bridge does not force DISPLAY when explicit wayland env is provided' );
 }
 
@@ -260,8 +262,8 @@ use SSH::Bridge;
         clear_runner => sub { return 1 },
     );
     like(
-        eval { $bridge->execute('mac.b'); 1 } ? q{} : $@,
-        qr/No SSH key passphrase available for mac\.b/,
+        eval { $bridge->execute('mac'); 1 } ? q{} : $@,
+        qr/No SSH key passphrase available for mac/,
         'missing passphrase env fails clearly when bridge is non-interactive'
     );
 }
@@ -285,7 +287,7 @@ use SSH::Bridge;
             return 0;
         },
     );
-    is( $bridge->execute('mac.b'), 0, 'interactive bridge can load the key without passphrase env vars' );
+    is( $bridge->execute('mac'), 0, 'interactive bridge can load the key without passphrase env vars' );
     is( $system_calls[0][1], 'ssh-add', 'interactive fallback uses direct ssh-add' );
     is( $system_calls[1][1], 'ssh', 'interactive fallback continues to ssh after loading the key' );
 }
@@ -305,7 +307,7 @@ use SSH::Bridge;
         system_runner => sub { return 1 },
     );
     like(
-        eval { $bridge->ensure_identity_loaded( 'mac.b', $add ); 1 } ? q{} : $@,
+        eval { $bridge->ensure_identity_loaded( 'mac', $add ); 1 } ? q{} : $@,
         qr/Failed to add .*id_ed25519 to ssh-agent/,
         'ssh-add failure is reported clearly'
     );
@@ -325,7 +327,7 @@ use SSH::Bridge;
         system_runner => sub { return 1 },
     );
     like(
-        eval { $bridge->ensure_identity_loaded( 'mac.b', $add ); 1 } ? q{} : $@,
+        eval { $bridge->ensure_identity_loaded( 'mac', $add ); 1 } ? q{} : $@,
         qr/Failed to add .*id_ed25519 to ssh-agent/,
         'interactive ssh-add failure is reported clearly'
     );
@@ -363,7 +365,7 @@ use SSH::Bridge;
             return 0;
         },
     );
-    is( $bridge->execute( 'mac.b', '1223', '7' ), 0, 'bridge reconnect mode succeeds' );
+    is( $bridge->execute( 'mac', '1223', '7' ), 0, 'bridge reconnect mode succeeds' );
     is( scalar @system_calls, 2, 'bridge reconnect mode runs the ssh command twice when max_attempts is set for tests' );
     is_deeply( \@sleep_calls, ['7'], 'bridge sleeps between reconnect attempts' );
 }

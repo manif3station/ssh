@@ -8,7 +8,7 @@ The skill is intentionally proactive. It moves passphrase prompts to the beginni
 
 The skill also includes `dashboard ssh.list` and the alias `dashboard ssh.ls` so users can inspect the registry without opening `~/.ssh/keys.txt`. List mode reports each managed key, its expanded filesystem path, whether it is loaded in `ssh-add -l`, and its fingerprint when available.
 
-It now also ships `dashboard ssh.bridge`, which reuses the same managed ssh-agent flow for direct bridge connections and adds the required command-line SSH options automatically for hosts ending in `.b`, including an optional remote-forward port.
+It now also ships `dashboard ssh.bridge`, which reuses the same managed ssh-agent flow for direct bridge connections and adds the required command-line SSH options automatically, including an optional remote-forward port.
 
 ## Runtime Design
 
@@ -35,7 +35,7 @@ The collector now has three explicit prompt modes when remembered keys are missi
 
 The current shell cannot inherit environment changes from the completed `dashboard ssh.add` child process. After the first successful add, users can run `source ~/.ssh/ssh-agent/agent.env` to update the current shell immediately; later shells get the same value from the managed startup bridge.
 
-For bridge hosts ending in `.b`, `dashboard ssh.bridge` can inject `RemoteForward <port> localhost:22` along with `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` through `ssh -o ...` arguments instead of asking the user to maintain that behavior manually in `~/.ssh/config`.
+`dashboard ssh.bridge` injects `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` on every bridge run, and it injects `RemoteForward <port> localhost:22` when the second positional argument is supplied. This keeps the bridge behavior in the command itself instead of depending on a special hostname suffix in `~/.ssh/config`.
 
 When the bridge identity is not already loaded, interactive bridge runs now fall back to plain terminal `ssh-add ~/.ssh/id_ed25519` prompting before they try the SSH connection. Non-interactive bridge runs still require one of the documented bridge passphrase environment variables.
 

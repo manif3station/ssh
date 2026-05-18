@@ -18,7 +18,7 @@ Deliver a Developer Dashboard skill that prepares remembered SSH keys before the
 - key registry at `~/.ssh/keys.txt`
 - managed ssh-agent socket repair
 - shell startup bridge for `~/.ssh/ssh-agent/agent.env`
-- bridge SSH option injection for `*.b` hosts
+- bridge SSH option injection through the `ssh.bridge` command itself
 - clear missing-key validation before registry writes
 - table and JSON managed-key inspection output
 - active-socket use across add, list, and collector flows

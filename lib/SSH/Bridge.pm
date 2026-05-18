@@ -52,19 +52,12 @@ sub parse_args {
         ( $remote_port, $reconnect ) = @argv;
     }
     elsif (@argv == 1) {
-        if ( $self->is_bridge_host($server) ) {
-            $remote_port = $argv[0];
-        }
-        else {
-            $reconnect = $argv[0];
-        }
+        $remote_port = $argv[0];
     }
 
     if ( defined $remote_port ) {
         die "Remote forward port must be an integer from 1 to 65535\n"
           if $remote_port !~ /\A\d+\z/ || $remote_port < 1 || $remote_port > 65535;
-        die "Remote forward port is supported only for hosts ending in .b\n"
-          if !$self->is_bridge_host($server);
     }
     if ( defined $reconnect ) {
         die "Reconnect seconds must be a non-negative integer\n" if $reconnect !~ /\A\d+\z/;
@@ -193,23 +186,16 @@ sub connect_once {
 
 sub ssh_command_for {
     my ( $self, $server, $remote_port ) = @_;
-    my @cmd = ('ssh');
-    if ( $self->is_bridge_host($server) ) {
-        push @cmd,
-          ( defined $remote_port ? ( '-o', "RemoteForward $remote_port localhost:22" ) : () ),
-          '-o', 'ExitOnForwardFailure=yes',
-          '-o', 'ServerAliveInterval=60',
-          '-o', 'SessionType=none',
-          '-o', 'RequestTTY=no';
-    }
+    my @cmd = (
+        'ssh',
+        ( defined $remote_port ? ( '-o', "RemoteForward $remote_port localhost:22" ) : () ),
+        '-o', 'ExitOnForwardFailure=yes',
+        '-o', 'ServerAliveInterval=60',
+        '-o', 'SessionType=none',
+        '-o', 'RequestTTY=no',
+    );
     push @cmd, '-v', $server;
     return @cmd;
-}
-
-sub is_bridge_host {
-    my ( $self, $server ) = @_;
-    my ($host) = $server =~ /\A(?:[^@]+@)?(.+)\z/;
-    return defined $host && $host =~ /\.b\z/i ? 1 : 0;
 }
 
 sub clear_screen {

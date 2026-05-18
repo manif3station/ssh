@@ -83,12 +83,12 @@ dashboard ssh.list -o table
 Bridge to a remote SSH server:
 
 ```bash
-dashboard ssh.bridge mac.b
+dashboard ssh.bridge mac
 ```
 
 The bridge command reuses the skill-managed ssh-agent flow, ensures `~/.ssh/id_ed25519` is available in the active agent, and then runs `ssh -v`.
 
-If the host ends in `.b`, the command line also adds:
+The command line also adds:
 
 - `-o RemoteForward <port> localhost:22` when a remote-forward port is supplied
 - `-o ExitOnForwardFailure=yes`
@@ -99,13 +99,13 @@ If the host ends in `.b`, the command line also adds:
 Forward port `1223` back to local SSH:
 
 ```bash
-dashboard ssh.bridge mac.b 1223
+dashboard ssh.bridge mac 1223
 ```
 
 Reconnect mode:
 
 ```bash
-dashboard ssh.bridge mac.b 1223 5
+dashboard ssh.bridge mac 1223 5
 ```
 
 That reruns the bridge connection every `5` seconds after the prior SSH process exits while keeping the remote-forward port at `1223`.
@@ -116,7 +116,7 @@ Bridge passphrase lookup order:
 - `SSH_KEY_PASSPHRASE`
 - `MACB_PASSPHRASE` for `mac...` hosts
 - `GPDB_PASSPHRASE` for `gpd...` hosts
-- `PASS` for legacy `jump`, `mac.b`, and `gpd.b` flows
+- `PASS` for legacy bridge workflows
 
 If none of those variables is present and the command is running in an interactive terminal, bridge mode falls back to direct terminal `ssh-add ~/.ssh/id_ed25519` prompting.
 

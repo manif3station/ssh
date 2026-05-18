@@ -30,7 +30,7 @@ cover -report text
 - `lib/SSH/Add.pm` reached `100.0%` subroutine coverage
 - `lib/SSH/Bridge.pm` reached `100.0%` statement coverage
 - `lib/SSH/Bridge.pm` reached `100.0%` subroutine coverage
-- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, already-loaded add skipping, bridge-host SSH option injection for `*.b`, optional bridge `RemoteForward <port> localhost:22` injection, bridge reconnect looping, bridge passphrase env fallback order, wayland-aware askpass env handling, default helper paths, and CLI `main` success/error paths
+- tests cover explicit key registration, missing explicit-key rejection, default-key fallback, deduplication, missing default-key errors, quiet stale-agent health checks, managed ssh-agent startup, dead `SSH_AUTH_SOCK` repair, live socket reuse, saved agent env parsing, stable socket env writing, shell startup bridge writing, active `IdentityAgent` bridge writing, collector missing-key behavior, interactive collector prompting, non-interactive collector reporting, managed-key list table output, managed-key list JSON output, `loaded`/`not-loaded`/`missing-file` list statuses, active-socket add behavior when the live socket differs from the default path, already-loaded add skipping, always-on bridge SSH option injection, optional bridge `RemoteForward <port> localhost:22` injection, bridge reconnect looping, bridge passphrase env fallback order, wayland-aware askpass env handling, default helper paths, and CLI `main` success/error paths
 
 Latest covered result for `DD-040`:
 
@@ -160,15 +160,16 @@ Latest DD source proof for `DD-043` verified:
 Latest covered result for `DD-081`:
 
 ```text
-Files=9, Tests=208
+Files=9, Tests=209
 lib/SSH/Add.pm     100.0   90.2   74.4  100.0
-lib/SSH/Bridge.pm  100.0   88.1   68.2  100.0
+lib/SSH/Bridge.pm  100.0   86.0   66.6  100.0
 ```
 
 Docker proof for `DD-081` verified:
 
 - `dashboard ssh.bridge` is shipped by the skill through `cli/bridge` and exercised through `lib/SSH/Bridge.pm`
-- bridge hosts ending in `.b` add optional `RemoteForward <port> localhost:22`, `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` on the SSH command line
+- `dashboard ssh.bridge` itself adds `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` on every bridge run
+- `dashboard ssh.bridge <server> <port>` adds `RemoteForward <port> localhost:22` on the SSH command line without depending on a `.b` hostname suffix
 - bridge mode reuses the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity
 - interactive bridge runs fall back to direct `ssh-add ~/.ssh/id_ed25519` prompting when no bridge passphrase environment variable is available
 - explicit wayland bridge environments do not force a host `DISPLAY` fallback into askpass mode
