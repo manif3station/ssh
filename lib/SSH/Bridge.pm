@@ -89,8 +89,10 @@ sub ensure_identity_loaded {
     return 1 if $self->identity_is_loaded($add);
 
     my $passphrase = $self->passphrase_for($server);
-    die "No SSH key passphrase available for $server\n"
-      if !defined $passphrase || $passphrase eq q{};
+    if ( !defined $passphrase || $passphrase eq q{} ) {
+        return $self->run_interactive_ssh_add($add) if $self->is_interactive;
+        die "No SSH key passphrase available for $server\n";
+    }
 
     my $askpass = $self->write_passphrase_askpass($passphrase);
     my $base_env = $self->{env} || \%ENV;
@@ -107,6 +109,17 @@ sub ensure_identity_loaded {
     $env{DISPLAY} = $base_env->{DISPLAY} || $ENV{DISPLAY} || ':0'
       if !$base_env->{WAYLAND_DISPLAY} && !$env{DISPLAY};
     my $exit = $self->system_with_env( \%env, 'setsid', '-w', 'ssh-add', $self->identity_file );
+    die "Failed to add " . $self->identity_file . " to ssh-agent\n" if $exit != 0;
+    return 1;
+}
+
+sub run_interactive_ssh_add {
+    my ( $self, $add ) = @_;
+    my %env = (
+        %{ $self->{env} || \%ENV },
+        SSH_AUTH_SOCK => $add->active_agent_socket,
+    );
+    my $exit = $self->system_with_env( \%env, 'ssh-add', $self->identity_file );
     die "Failed to add " . $self->identity_file . " to ssh-agent\n" if $exit != 0;
     return 1;
 }
@@ -219,6 +232,12 @@ sub system_with_env {
     local %ENV = %{$env};
     system @cmd;
     return $? >> 8;
+}
+
+sub is_interactive {
+    my ($self) = @_;
+    return $self->{interactive} if exists $self->{interactive};
+    return -t STDIN ? 1 : 0;
 }
 
 sub identity_file {

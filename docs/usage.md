@@ -118,6 +118,10 @@ Bridge passphrase lookup order:
 - `GPDB_PASSPHRASE` for `gpd...` hosts
 - `PASS` for legacy `jump`, `mac.b`, and `gpd.b` flows
 
+If none of those variables is present and the command is running in an interactive terminal, bridge mode falls back to direct terminal `ssh-add ~/.ssh/id_ed25519` prompting.
+
+If the command is non-interactive, it still fails early when no bridge passphrase environment variable is available.
+
 ## Key Registry
 
 The key registry is:

@@ -262,8 +262,32 @@ use SSH::Bridge;
     like(
         eval { $bridge->execute('mac.b'); 1 } ? q{} : $@,
         qr/No SSH key passphrase available for mac\.b/,
-        'missing passphrase env fails clearly'
+        'missing passphrase env fails clearly when bridge is non-interactive'
     );
+}
+
+{
+    my $home = tempdir( CLEANUP => 1 );
+    my $add = SSH::Bridge::TestAdd->new(
+        fingerprint => 'SHA256:test',
+        loaded      => [],
+        socket      => '/tmp/active.sock',
+    );
+    my @system_calls;
+    my $bridge = SSH::Bridge->new(
+        home          => $home,
+        ssh_add       => $add,
+        interactive   => 1,
+        clear_runner  => sub { return 1 },
+        system_runner => sub {
+            my ( $env, @cmd ) = @_;
+            push @system_calls, [ $env, @cmd ];
+            return 0;
+        },
+    );
+    is( $bridge->execute('mac.b'), 0, 'interactive bridge can load the key without passphrase env vars' );
+    is( $system_calls[0][1], 'ssh-add', 'interactive fallback uses direct ssh-add' );
+    is( $system_calls[1][1], 'ssh', 'interactive fallback continues to ssh after loading the key' );
 }
 
 {
@@ -284,6 +308,26 @@ use SSH::Bridge;
         eval { $bridge->ensure_identity_loaded( 'mac.b', $add ); 1 } ? q{} : $@,
         qr/Failed to add .*id_ed25519 to ssh-agent/,
         'ssh-add failure is reported clearly'
+    );
+}
+
+{
+    my $home = tempdir( CLEANUP => 1 );
+    my $add = SSH::Bridge::TestAdd->new(
+        fingerprint => 'SHA256:test',
+        loaded      => [],
+        socket      => '/tmp/active.sock',
+    );
+    my $bridge = SSH::Bridge->new(
+        home          => $home,
+        ssh_add       => $add,
+        interactive   => 1,
+        system_runner => sub { return 1 },
+    );
+    like(
+        eval { $bridge->ensure_identity_loaded( 'mac.b', $add ); 1 } ? q{} : $@,
+        qr/Failed to add .*id_ed25519 to ssh-agent/,
+        'interactive ssh-add failure is reported clearly'
     );
 }
 
@@ -337,6 +381,13 @@ use SSH::Bridge;
     );
     is( $bridge->main('ops.example'), 0, 'main returns zero on success' );
     is( $bridge->main, 2, 'main returns 2 for invalid usage' );
+}
+
+{
+    my $bridge = SSH::Bridge->new( interactive => 1 );
+    ok( $bridge->is_interactive, 'is_interactive honors explicit interactive override' );
+    $bridge = SSH::Bridge->new( interactive => 0 );
+    ok( !$bridge->is_interactive, 'is_interactive honors explicit non-interactive override' );
 }
 
 {

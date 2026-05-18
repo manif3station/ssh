@@ -213,6 +213,8 @@ Passphrase lookup order for bridge mode is:
 - `GPDB_PASSPHRASE` for `gpd...` hosts
 - `PASS` for legacy `jump`, `mac.b`, and `gpd.b` flows
 
+If none of those variables is set and you run `dashboard ssh.bridge` from an interactive terminal, the command now falls back to normal interactive `ssh-add ~/.ssh/id_ed25519` prompting before it opens the SSH connection.
+
 ## Key Registry
 
 Remembered keys are stored in:
@@ -319,7 +321,8 @@ dashboard skills uninstall ssh
 - `ssh.add` skips passphrase prompts for keys that are already loaded in the active agent
 - `ssh.bridge` only injects the extra SSH options for hosts ending in `.b`
 - `ssh.bridge` only injects `RemoteForward <port> localhost:22` when a bridge host receives a remote-forward port argument
-- `ssh.bridge` fails early when no bridge passphrase environment variable is available and `~/.ssh/id_ed25519` is not already loaded
+- `ssh.bridge` falls back to interactive `ssh-add` in a terminal when no bridge passphrase environment variable is available
+- `ssh.bridge` still fails early in non-interactive runs when no bridge passphrase environment variable is available and `~/.ssh/id_ed25519` is not already loaded
 - explicit missing keys are rejected before registration or `ssh-add`
 - stale remembered entries for explicitly missing keys are removed during that rejection
 - missing `SSH_AUTH_SOCK` starts or reuses the managed agent

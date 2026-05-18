@@ -37,6 +37,8 @@ The current shell cannot inherit environment changes from the completed `dashboa
 
 For bridge hosts ending in `.b`, `dashboard ssh.bridge` can inject `RemoteForward <port> localhost:22` along with `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` through `ssh -o ...` arguments instead of asking the user to maintain that behavior manually in `~/.ssh/config`.
 
+When the bridge identity is not already loaded, interactive bridge runs now fall back to plain terminal `ssh-add ~/.ssh/id_ed25519` prompting before they try the SSH connection. Non-interactive bridge runs still require one of the documented bridge passphrase environment variables.
+
 Explicit keys are validated before registration. If `dashboard ssh.add id_rsa` points to a missing `~/.ssh/id_rsa`, the skill returns a clear `SSH key not found` error and does not write the missing key to `~/.ssh/keys.txt`. If the missing key is already present from an older failed run, the skill removes that stale entry and leaves the rest of the registry intact.
 
 If an older installed skill still has a remembered-key file at `config/ssh/keys.txt`, the next command run moves that legacy file into `~/.ssh/keys.txt` before add, list, or collector logic continues.

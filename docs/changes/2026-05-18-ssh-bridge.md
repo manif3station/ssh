@@ -10,6 +10,7 @@ Promoted the manually added `ssh.bridge` script into a first-class `ssh` skill c
 - kept `cli/bridge` as the skill entrypoint wrapper for `dashboard ssh.bridge`
 - reused the managed ssh-agent flow from the `ssh` skill before connecting
 - made bridge hosts ending in `.b` add optional `RemoteForward <port> localhost:22`, `ExitOnForwardFailure=yes`, `ServerAliveInterval=60`, `SessionType=none`, and `RequestTTY=no` directly through SSH command-line options
+- made interactive bridge runs fall back to terminal `ssh-add ~/.ssh/id_ed25519` prompting when no bridge passphrase environment variable is set
 
 ## Proof
 

@@ -1,5 +1,8 @@
 Revision history for ssh
 
+0.13 2026-05-18
+ - make `dashboard ssh.bridge` fall back to interactive `ssh-add` when `~/.ssh/id_ed25519` is not loaded and no bridge passphrase environment variable is set
+
 0.12 2026-05-18
  - make `dashboard ssh.bridge` executable in the shipped skill so DD can dispatch the command
 
