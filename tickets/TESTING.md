@@ -121,6 +121,7 @@ Observed behavior:
 - the installed skill version is `0.08`
 - the installed skill version is `0.10`
 - the installed skill version is `0.11`
+- the installed skill version is `0.12`
 
 Installed DD proof for `DD-041` verified the same two collector cases through the installed `dashboard` command:
 
@@ -170,6 +171,7 @@ Docker proof for `DD-081` verified:
 - bridge mode reuses the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity
 - explicit wayland bridge environments do not force a host `DISPLAY` fallback into askpass mode
 - reconnect mode reruns the SSH command after the configured delay in the governed test harness
+- `cli/bridge` is shipped with the executable bit so DD can dispatch `dashboard ssh.bridge`
 
 ## Cleanup
 

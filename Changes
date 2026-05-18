@@ -1,5 +1,8 @@
 Revision history for ssh
 
+0.12 2026-05-18
+ - make `dashboard ssh.bridge` executable in the shipped skill so DD can dispatch the command
+
 0.11 2026-05-18
  - add `dashboard ssh.bridge` as a governed skill command with tests and documentation
  - reuse the skill-managed ssh-agent flow and default `~/.ssh/id_ed25519` identity for bridge connections
