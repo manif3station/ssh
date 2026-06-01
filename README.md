@@ -71,10 +71,10 @@ This skill adds:
 
 ## Installation
 
-Install through Developer Dashboard:
+Install the skill into Developer Dashboard by repo name:
 
 ```bash
-dashboard skills install git@github.mf:manif3station/ssh.git
+dashboard skills install ssh
 ```
 
 ## License
